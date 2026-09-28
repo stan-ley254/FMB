@@ -30,6 +30,19 @@
                                 <div>
                                     <p class="font-medium text-slate-800">{{ $material->name }}</p>
                                     <p class="mt-1 text-xs text-slate-500">{{ str($material->machine ?? 'shared')->replace('_', ' ')->title() }}</p>
+                                    <div class="mt-2 space-y-0.5 text-xs text-slate-500">
+                                        <p>
+                                            Last used:
+                                            @if ($material->last_used_at)
+                                                {{ \Illuminate\Support\Carbon::parse($material->last_used_at)->format('M j, Y') }}
+                                                ({{ \Illuminate\Support\Carbon::parse($material->last_used_at)->diffInDays(now()) }} days ago)
+                                            @else
+                                                Never used
+                                            @endif
+                                        </p>
+                                        <p>Last restocked: {{ $material->last_restocked_at ? \Illuminate\Support\Carbon::parse($material->last_restocked_at)->format('M j, Y') : '—' }}</p>
+                                        <a class="font-medium text-blue-700 hover:underline" href="{{ route('stock.history', ['item' => 'material:'.$material->id]) }}">View history</a>
+                                    </div>
                                 </div>
                                 <div>
                                     <p class="text-xs uppercase tracking-wide text-slate-400">Remaining</p>
@@ -72,7 +85,22 @@
                             @foreach ($inkStocksByMachine->get($machine, collect()) as $inkStock)
                                 @php($isLow = (float) $inkStock->quantity_remaining < 1)
                                 <div class="grid gap-4 py-4 md:grid-cols-[minmax(10rem,1fr)_8rem_minmax(20rem,1.4fr)_auto] md:items-center">
-                                    <p class="font-medium text-slate-800">{{ $label }} {{ str($inkStock->color)->title() }}</p>
+                                    <div>
+                                        <p class="font-medium text-slate-800">{{ $label }} {{ str($inkStock->color)->title() }}</p>
+                                        <div class="mt-2 space-y-0.5 text-xs text-slate-500">
+                                            <p>
+                                                Last used:
+                                                @if ($inkStock->last_used_at)
+                                                    {{ \Illuminate\Support\Carbon::parse($inkStock->last_used_at)->format('M j, Y') }}
+                                                    ({{ \Illuminate\Support\Carbon::parse($inkStock->last_used_at)->diffInDays(now()) }} days ago)
+                                                @else
+                                                    Never used
+                                                @endif
+                                            </p>
+                                            <p>Last restocked: {{ $inkStock->last_restocked_at ? \Illuminate\Support\Carbon::parse($inkStock->last_restocked_at)->format('M j, Y') : '—' }}</p>
+                                            <a class="font-medium text-blue-700 hover:underline" href="{{ route('stock.history', ['item' => 'ink:'.$inkStock->id]) }}">View history</a>
+                                        </div>
+                                    </div>
                                     <p class="font-semibold {{ $isLow ? 'text-orange-700' : 'text-slate-800' }}">
                                         {{ number_format((float) $inkStock->quantity_remaining, 0) }} {{ $inkStock->unit }}
                                         @if ($isLow)<span class="ml-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800">Low</span>@endif

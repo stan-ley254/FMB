@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\InkStock;
 use App\Models\Material;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,8 +15,23 @@ class MaterialStockController extends Controller
     public function index(): View
     {
         return view('stock.index', [
-            'materialsByCategory' => Material::orderBy('name')->get()->groupBy('category'),
-            'inkStocksByMachine' => InkStock::orderBy('machine')->orderBy('color')->get()->groupBy('machine'),
+            'materialsByCategory' => Material::query()
+                ->withMax([
+                    'stockMovements as last_used_at' => fn (Builder $query) => $query->where('type', 'usage'),
+                    'stockMovements as last_restocked_at' => fn (Builder $query) => $query->where('type', 'purchase'),
+                ], 'created_at')
+                ->orderBy('name')
+                ->get()
+                ->groupBy('category'),
+            'inkStocksByMachine' => InkStock::query()
+                ->withMax([
+                    'stockMovements as last_used_at' => fn (Builder $query) => $query->where('type', 'usage'),
+                    'stockMovements as last_restocked_at' => fn (Builder $query) => $query->where('type', 'purchase'),
+                ], 'created_at')
+                ->orderBy('machine')
+                ->orderBy('color')
+                ->get()
+                ->groupBy('machine'),
             'categories' => [
                 'banner' => 'Banner widths',
                 'sertine' => 'Sertine',

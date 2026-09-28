@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\InkStock;
 use App\Models\Material;
+use App\Models\StockMovement;
+use Illuminate\Support\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -100,5 +102,66 @@ class StockManagementTest extends TestCase
             'quantity' => 1,
             'related_order_id' => null,
         ]);
+    }
+
+    public function test_stock_history_filters_movements_and_shows_days_between_uses(): void
+    {
+        $this->seed();
+        $material = Material::where('name', 'Banner 1M')->firstOrFail();
+
+        foreach ([Carbon::parse('2026-09-20 09:00'), Carbon::parse('2026-09-23 09:00'), Carbon::parse('2026-09-28 09:00')] as $createdAt) {
+            StockMovement::forceCreate([
+                'material_id' => $material->id,
+                'type' => 'usage',
+                'quantity' => 1,
+                'created_at' => $createdAt,
+            ]);
+        }
+
+        StockMovement::forceCreate([
+            'material_id' => $material->id,
+            'type' => 'purchase',
+            'quantity' => 2,
+            'notes' => 'Restocked',
+            'created_at' => Carbon::parse('2026-09-19 09:00'),
+        ]);
+
+        $response = $this->get(route('stock.history', [
+            'item' => 'material:'.$material->id,
+            'type' => 'usage',
+            'from' => '2026-09-20',
+            'to' => '2026-09-28',
+        ]));
+
+        $response->assertOk()
+            ->assertSee('Sep 28, 2026 09:00')
+            ->assertSee('5 days')
+            ->assertSee('3 days')
+            ->assertDontSee('Restocked');
+    }
+
+    public function test_stock_page_shows_last_used_and_restocked_timestamps(): void
+    {
+        $this->seed();
+        $material = Material::where('name', 'Banner 1M')->firstOrFail();
+
+        StockMovement::forceCreate([
+            'material_id' => $material->id,
+            'type' => 'purchase',
+            'quantity' => 1,
+            'created_at' => Carbon::parse('2026-09-25 09:00'),
+        ]);
+        StockMovement::forceCreate([
+            'material_id' => $material->id,
+            'type' => 'usage',
+            'quantity' => 1,
+            'created_at' => Carbon::parse('2026-09-28 09:00'),
+        ]);
+
+        $this->get(route('stock.index'))
+            ->assertOk()
+            ->assertSee('Last used:')
+            ->assertSee('0 days ago')
+            ->assertSee('Last restocked:');
     }
 }

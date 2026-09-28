@@ -180,6 +180,13 @@ class OrderManagementTest extends TestCase
     public function test_completing_an_order_creates_one_historical_sale_snapshot(): void
     {
         $customer = Customer::create(['name' => 'Sale Customer']);
+        $material = Material::create([
+            'name' => 'Snapshot Banner',
+            'category' => 'banner',
+            'unit' => 'rolls',
+            'quantity_remaining' => 2,
+            'machine' => 'large_format',
+        ]);
         $order = Order::create([
             'customer_id' => $customer->id,
             'status' => 'ready',
@@ -187,6 +194,7 @@ class OrderManagementTest extends TestCase
         ]);
         $order->items()->create([
             'item_type' => 'banner',
+            'material_id' => $material->id,
             'quantity_or_meters' => 2,
             'unit_price' => 15,
             'discount' => 1,
@@ -208,6 +216,8 @@ class OrderManagementTest extends TestCase
         $this->assertSame('29.00', $sale->total_amount);
         $this->assertSame('20.00', $sale->amount_paid);
         $this->assertSame('banner', $sale->items_snapshot[0]['item_type']);
+        $this->assertSame($material->id, $sale->items_snapshot[0]['material_id']);
+        $this->assertSame('Snapshot Banner', $sale->items_snapshot[0]['material_name']);
         $this->assertSame('2.000', $sale->items_snapshot[0]['quantity']);
     }
 }

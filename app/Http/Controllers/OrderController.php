@@ -186,7 +186,7 @@ class OrderController extends Controller
             ]);
 
             if ($validated['status'] === 'completed') {
-                $lockedOrder->loadMissing(['customer', 'items']);
+                $lockedOrder->loadMissing(['customer', 'items.material']);
 
                 Sale::firstOrCreate(
                     ['order_id' => $lockedOrder->id],
@@ -199,6 +199,8 @@ class OrderController extends Controller
                         'completed_at' => now(),
                         'items_snapshot' => $lockedOrder->items->map(fn (OrderItem $item): array => [
                             'item_type' => $item->item_type,
+                            'material_id' => $item->material_id,
+                            'material_name' => $item->material?->name,
                             'quantity' => $item->quantity_or_meters,
                             'unit_price' => $item->unit_price,
                             'discount' => $item->discount,

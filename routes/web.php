@@ -3,6 +3,7 @@
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\MaterialStockController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\StockHistoryController;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
@@ -12,6 +13,7 @@ Route::post('/stock/materials/{material}', [MaterialStockController::class, 'add
 Route::post('/stock/materials/{material}/use', [MaterialStockController::class, 'useMaterial'])->name('stock.materials.use');
 Route::post('/stock/inks/{inkStock}', [MaterialStockController::class, 'addInk'])->name('stock.inks.add');
 Route::post('/stock/inks/{inkStock}/use', [MaterialStockController::class, 'useInk'])->name('stock.inks.use');
+Route::get('/stock/history', [StockHistoryController::class, 'index'])->name('stock.history');
 
 Route::view('/sales', 'sales.index')->name('sales.index');
 Route::view('/expenses', 'expenses.index')->name('expenses.index');
