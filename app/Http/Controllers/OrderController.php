@@ -6,14 +6,15 @@ use App\Http\Requests\StoreOrderRequest;
 use App\Models\Customer;
 use App\Models\Material;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\OrderArtwork;
+use App\Models\Sale;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -86,18 +87,7 @@ class OrderController extends Controller
                         || (bool) ($itemData['garment_sourced_by_shop'] ?? false);
 
                     if ($requiresMaterial) {
-                        $material = Material::whereKey($itemData['material_id'])
-                            ->lockForUpdate()
-                            ->firstOrFail();
-                        $quantity = (float) $itemData['quantity_or_meters'];
-
-                        if ((float) $material->quantity_remaining < $quantity) {
-                            throw ValidationException::withMessages([
-                                "items.$index.quantity_or_meters" => "Not enough {$material->name} in stock.",
-                            ]);
-                        }
-
-                        $material->decrement('quantity_remaining', $quantity);
+                        $material = Material::whereKey($itemData['material_id'])->firstOrFail();
                     }
 
                     $quantity = (float) $itemData['quantity_or_meters'];
@@ -116,15 +106,6 @@ class OrderController extends Controller
                         'subtotal' => $subtotal,
                     ]);
                     $totalAmount += $subtotal;
-
-                    if ($material !== null) {
-                        $material->stockMovements()->create([
-                            'type' => 'usage',
-                            'quantity' => $quantity,
-                            'related_order_id' => $order->id,
-                            'notes' => "Used for order item #{$orderItem->id}.",
-                        ]);
-                    }
 
                     foreach ($request->file("items.$index.artworks", []) as $file) {
                         $path = $file->store('artworks', 'local');
@@ -154,7 +135,7 @@ class OrderController extends Controller
             throw $exception;
         }
 
-        return redirect()->route('orders.show', $order)->with('success', 'Order created and stock updated.');
+        return redirect()->route('orders.show', $order)->with('success', 'Order created.');
     }
 
     public function show(Order $order): View
@@ -193,14 +174,40 @@ class OrderController extends Controller
             'bank_name' => ['nullable', 'required_if:payment_method,bank', 'string', 'max:255'],
         ]);
 
-        $order->update([
-            'status' => $validated['status'],
-            'amount_paid' => $validated['amount_paid'],
-            'payment_method' => $validated['payment_method'] ?? null,
-            'bank_name' => ($validated['payment_method'] ?? null) === 'bank'
-                ? ($validated['bank_name'] ?? null)
-                : null,
-        ]);
+        DB::transaction(function () use ($order, $validated): void {
+            $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $lockedOrder->update([
+                'status' => $validated['status'],
+                'amount_paid' => $validated['amount_paid'],
+                'payment_method' => $validated['payment_method'] ?? null,
+                'bank_name' => ($validated['payment_method'] ?? null) === 'bank'
+                    ? ($validated['bank_name'] ?? null)
+                    : null,
+            ]);
+
+            if ($validated['status'] === 'completed') {
+                $lockedOrder->loadMissing(['customer', 'items']);
+
+                Sale::firstOrCreate(
+                    ['order_id' => $lockedOrder->id],
+                    [
+                        'customer_id' => $lockedOrder->customer_id,
+                        'total_amount' => $lockedOrder->total_amount,
+                        'amount_paid' => $lockedOrder->amount_paid,
+                        'payment_method' => $lockedOrder->payment_method,
+                        'bank_name' => $lockedOrder->bank_name,
+                        'completed_at' => now(),
+                        'items_snapshot' => $lockedOrder->items->map(fn (OrderItem $item): array => [
+                            'item_type' => $item->item_type,
+                            'quantity' => $item->quantity_or_meters,
+                            'unit_price' => $item->unit_price,
+                            'discount' => $item->discount,
+                            'subtotal' => $item->subtotal,
+                        ])->values()->all(),
+                    ],
+                );
+            }
+        });
 
         return redirect()->route('orders.show', $order)->with('success', 'Order updated.');
     }

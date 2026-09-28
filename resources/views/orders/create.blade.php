@@ -77,7 +77,7 @@
                 <select name="items[__INDEX__][material_id]" class="material-select w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm">
                     <option value="">Choose stock material</option>
                     @foreach ($materials as $material)
-                        <option value="{{ $material->id }}" data-category="{{ $material->category }}" data-unit="{{ $material->unit }}">{{ $material->name }} ({{ number_format((float) $material->quantity_remaining, 3) }} {{ $material->unit }})</option>
+                        <option value="{{ $material->id }}" data-category="{{ $material->category }}" data-unit="{{ $material->unit }}">{{ $material->name }} ({{ number_format((float) $material->quantity_remaining, 0) }} {{ $material->unit }})</option>
                     @endforeach
                 </select>
             </div>

@@ -9,7 +9,12 @@ Route::view('/', 'welcome')->name('home');
 
 Route::get('/stock', [MaterialStockController::class, 'index'])->name('stock.index');
 Route::post('/stock/materials/{material}', [MaterialStockController::class, 'addMaterial'])->name('stock.materials.add');
+Route::post('/stock/materials/{material}/use', [MaterialStockController::class, 'useMaterial'])->name('stock.materials.use');
 Route::post('/stock/inks/{inkStock}', [MaterialStockController::class, 'addInk'])->name('stock.inks.add');
+Route::post('/stock/inks/{inkStock}/use', [MaterialStockController::class, 'useInk'])->name('stock.inks.use');
+
+Route::view('/sales', 'sales.index')->name('sales.index');
+Route::view('/expenses', 'expenses.index')->name('expenses.index');
 
 Route::resource('customers', CustomerController::class)->except('destroy');
 

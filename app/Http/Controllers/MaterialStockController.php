@@ -29,7 +29,7 @@ class MaterialStockController extends Controller
     public function addMaterial(Request $request, Material $material): RedirectResponse
     {
         $validated = $request->validate([
-            'quantity' => ['required', 'numeric', 'gt:0', 'max:999999.999'],
+            'quantity' => ['required', 'numeric', 'integer', 'gt:0', 'max:999999'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -47,10 +47,30 @@ class MaterialStockController extends Controller
         return back()->with('success', "Stock added to {$material->name}.");
     }
 
+    public function useMaterial(Material $material): RedirectResponse
+    {
+        DB::transaction(function () use ($material): void {
+            $lockedMaterial = Material::whereKey($material->id)->lockForUpdate()->firstOrFail();
+
+            if ((float) $lockedMaterial->quantity_remaining < 1) {
+                abort(422, "There is no {$lockedMaterial->name} left in stock.");
+            }
+
+            $lockedMaterial->decrement('quantity_remaining', 1);
+            $lockedMaterial->stockMovements()->create([
+                'type' => 'usage',
+                'quantity' => 1,
+                'notes' => 'Manually marked as used.',
+            ]);
+        });
+
+        return back()->with('success', "One unit of {$material->name} marked as used.");
+    }
+
     public function addInk(Request $request, InkStock $inkStock): RedirectResponse
     {
         $validated = $request->validate([
-            'quantity' => ['required', 'numeric', 'gt:0', 'max:999999.999'],
+            'quantity' => ['required', 'numeric', 'integer', 'gt:0', 'max:999999'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -66,5 +86,25 @@ class MaterialStockController extends Controller
         });
 
         return back()->with('success', 'Ink stock added.');
+    }
+
+    public function useInk(InkStock $inkStock): RedirectResponse
+    {
+        DB::transaction(function () use ($inkStock): void {
+            $lockedInkStock = InkStock::whereKey($inkStock->id)->lockForUpdate()->firstOrFail();
+
+            if ((float) $lockedInkStock->quantity_remaining < 1) {
+                abort(422, 'There is no ink bottle left in stock.');
+            }
+
+            $lockedInkStock->decrement('quantity_remaining', 1);
+            $lockedInkStock->stockMovements()->create([
+                'type' => 'usage',
+                'quantity' => 1,
+                'notes' => 'Manually marked as used.',
+            ]);
+        });
+
+        return back()->with('success', 'One ink bottle marked as used.');
     }
 }

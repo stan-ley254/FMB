@@ -19,6 +19,8 @@
             <a class="nav-link {{ request()->routeIs('orders.*') ? 'active' : '' }}" href="{{ route('orders.index') }}"><span class="nav-icon">▤</span> Orders</a>
             <a class="nav-link {{ request()->routeIs('customers.*') ? 'active' : '' }}" href="{{ route('customers.index') }}"><span class="nav-icon">♧</span> Customers</a>
             <a class="nav-link {{ request()->routeIs('stock.*') ? 'active' : '' }}" href="{{ route('stock.index') }}"><span class="nav-icon">▦</span> Materials &amp; ink</a>
+            <a class="nav-link {{ request()->routeIs('sales.*') ? 'active' : '' }}" href="{{ route('sales.index') }}"><span class="nav-icon">◫</span> Sales</a>
+            <a class="nav-link {{ request()->routeIs('expenses.*') ? 'active' : '' }}" href="{{ route('expenses.index') }}"><span class="nav-icon">¤</span> Expenses</a>
         </nav>
         <div class="sidebar-footer">
             <span class="status-dot"></span>

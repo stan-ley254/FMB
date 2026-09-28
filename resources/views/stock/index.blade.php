@@ -26,7 +26,7 @@
                         @foreach ($materials as $material)
                             @php($threshold = $material->name === 'TPU Powder' ? 2 : 10)
                             @php($isLow = (float) $material->quantity_remaining < $threshold)
-                            <div class="grid gap-4 px-5 py-4 md:grid-cols-[minmax(10rem,1fr)_8rem_minmax(20rem,1.4fr)] md:items-center">
+                            <div class="grid gap-4 px-5 py-4 md:grid-cols-[minmax(10rem,1fr)_8rem_minmax(20rem,1.4fr)_auto] md:items-center">
                                 <div>
                                     <p class="font-medium text-slate-800">{{ $material->name }}</p>
                                     <p class="mt-1 text-xs text-slate-500">{{ str($material->machine ?? 'shared')->replace('_', ' ')->title() }}</p>
@@ -34,7 +34,7 @@
                                 <div>
                                     <p class="text-xs uppercase tracking-wide text-slate-400">Remaining</p>
                                     <p class="mt-1 font-semibold {{ $isLow ? 'text-orange-700' : 'text-slate-800' }}">
-                                        {{ number_format((float) $material->quantity_remaining, 3) }} {{ $material->unit }}
+                                        {{ number_format((float) $material->quantity_remaining, 0) }} {{ $material->unit }}
                                         @if ($isLow)
                                             <span class="ml-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800">Low</span>
                                         @endif
@@ -43,10 +43,14 @@
                                 <form method="POST" action="{{ route('stock.materials.add', $material) }}" class="grid gap-2 sm:grid-cols-[7rem_minmax(8rem,1fr)_auto]">
                                     @csrf
                                     <label class="sr-only" for="material-quantity-{{ $material->id }}">Quantity to add</label>
-                                    <input id="material-quantity-{{ $material->id }}" name="quantity" type="number" min="0.001" step="0.001" required placeholder="Qty to add" class="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                                    <input id="material-quantity-{{ $material->id }}" name="quantity" type="number" min="1" step="1" required placeholder="Units to add" class="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
                                     <label class="sr-only" for="material-notes-{{ $material->id }}">Optional stock note</label>
                                     <input id="material-notes-{{ $material->id }}" name="notes" type="text" maxlength="2000" placeholder="Optional note" class="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
                                     <button class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">Add stock</button>
+                                </form>
+                                <form method="POST" action="{{ route('stock.materials.use', $material) }}">
+                                    @csrf
+                                    <button class="rounded-md border border-orange-300 px-3 py-2 text-sm font-semibold text-orange-700 hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50" {{ (float) $material->quantity_remaining < 1 ? 'disabled' : '' }}>Use 1</button>
                                 </form>
                             </div>
                         @endforeach
@@ -67,19 +71,23 @@
                         <div class="divide-y divide-slate-100">
                             @foreach ($inkStocksByMachine->get($machine, collect()) as $inkStock)
                                 @php($isLow = (float) $inkStock->quantity_remaining < 1)
-                                <div class="grid gap-4 py-4 md:grid-cols-[minmax(10rem,1fr)_8rem_minmax(20rem,1.4fr)] md:items-center">
+                                <div class="grid gap-4 py-4 md:grid-cols-[minmax(10rem,1fr)_8rem_minmax(20rem,1.4fr)_auto] md:items-center">
                                     <p class="font-medium text-slate-800">{{ $label }} {{ str($inkStock->color)->title() }}</p>
                                     <p class="font-semibold {{ $isLow ? 'text-orange-700' : 'text-slate-800' }}">
-                                        {{ number_format((float) $inkStock->quantity_remaining, 3) }} kg
+                                        {{ number_format((float) $inkStock->quantity_remaining, 0) }} {{ $inkStock->unit }}
                                         @if ($isLow)<span class="ml-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800">Low</span>@endif
                                     </p>
                                     <form method="POST" action="{{ route('stock.inks.add', $inkStock) }}" class="grid gap-2 sm:grid-cols-[7rem_minmax(8rem,1fr)_auto]">
                                         @csrf
-                                        <label class="sr-only" for="ink-quantity-{{ $inkStock->id }}">Quantity to add in kg</label>
-                                        <input id="ink-quantity-{{ $inkStock->id }}" name="quantity" type="number" min="0.001" step="0.001" required placeholder="Kg to add" class="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                                        <label class="sr-only" for="ink-quantity-{{ $inkStock->id }}">Bottles to add</label>
+                                        <input id="ink-quantity-{{ $inkStock->id }}" name="quantity" type="number" min="1" step="1" required placeholder="Bottles to add" class="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
                                         <label class="sr-only" for="ink-notes-{{ $inkStock->id }}">Optional stock note</label>
                                         <input id="ink-notes-{{ $inkStock->id }}" name="notes" type="text" maxlength="2000" placeholder="Optional note" class="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
                                         <button class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">Add stock</button>
+                                    </form>
+                                    <form method="POST" action="{{ route('stock.inks.use', $inkStock) }}">
+                                        @csrf
+                                        <button class="rounded-md border border-orange-300 px-3 py-2 text-sm font-semibold text-orange-700 hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50" {{ (float) $inkStock->quantity_remaining < 1 ? 'disabled' : '' }}>Use 1</button>
                                     </form>
                                 </div>
                             @endforeach

@@ -40,7 +40,7 @@ class DatabaseSeeder extends Seeder
             foreach (['cyan', 'magenta', 'yellow', 'black', 'white'] as $color) {
                 InkStock::firstOrCreate(
                     ['machine' => $machine, 'color' => $color],
-                    ['quantity_remaining' => 5],
+                    ['unit' => 'bottles', 'quantity_remaining' => 5],
                 );
             }
         }

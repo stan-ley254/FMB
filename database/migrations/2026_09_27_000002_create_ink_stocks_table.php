@@ -12,7 +12,8 @@ return new class extends Migration
             $table->id();
             $table->enum('machine', ['large_format', 'dtf']);
             $table->enum('color', ['cyan', 'magenta', 'yellow', 'black', 'white']);
-            $table->decimal('quantity_remaining', 12, 3)->default(0);
+            $table->string('unit', 20)->default('bottles');
+            $table->decimal('quantity_remaining', 12, 0)->default(0);
             $table->timestamps();
             $table->unique(['machine', 'color']);
         });

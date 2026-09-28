@@ -6,13 +6,13 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['machine', 'color', 'quantity_remaining'])]
+#[Fillable(['machine', 'color', 'unit', 'quantity_remaining'])]
 class InkStock extends Model
 {
     protected function casts(): array
     {
         return [
-            'quantity_remaining' => 'decimal:3',
+            'quantity_remaining' => 'decimal:0',
         ];
     }
 

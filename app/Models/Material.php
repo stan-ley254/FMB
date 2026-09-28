@@ -12,7 +12,7 @@ class Material extends Model
     protected function casts(): array
     {
         return [
-            'quantity_remaining' => 'decimal:3',
+            'quantity_remaining' => 'decimal:0',
             'unit_cost' => 'decimal:2',
         ];
     }

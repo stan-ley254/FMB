@@ -3,10 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Customer;
-use App\Models\InkStock;
 use App\Models\Material;
 use App\Models\Order;
 use App\Models\OrderArtwork;
+use App\Models\Sale;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -16,7 +16,7 @@ class OrderManagementTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_order_with_banner_and_shop_sourced_garments_deducts_linked_materials_and_saves_artworks(): void
+    public function test_order_with_banner_and_shop_sourced_garments_does_not_deduct_stock_and_saves_artworks(): void
     {
         $this->seed();
         Storage::fake('local');
@@ -52,26 +52,13 @@ class OrderManagementTest extends TestCase
         $order = Order::firstOrFail();
         $response->assertRedirect(route('orders.show', $order));
         $this->assertSame('44.00', $order->total_amount);
-        $this->assertDatabaseHas('materials', ['id' => $banner->id, 'quantity_remaining' => 3]);
-        $this->assertDatabaseHas('materials', ['id' => $shirts->id, 'quantity_remaining' => 7]);
-        $this->assertDatabaseCount('stock_movements', 2);
-        $this->assertDatabaseHas('stock_movements', [
-            'material_id' => $banner->id,
-            'type' => 'usage',
-            'quantity' => 2,
-            'related_order_id' => $order->id,
-        ]);
-        $this->assertDatabaseHas('stock_movements', [
-            'material_id' => $shirts->id,
-            'type' => 'usage',
-            'quantity' => 3,
-            'related_order_id' => $order->id,
-        ]);
+        $this->assertDatabaseHas('materials', ['id' => $banner->id, 'quantity_remaining' => 5]);
+        $this->assertDatabaseHas('materials', ['id' => $shirts->id, 'quantity_remaining' => 10]);
+        $this->assertDatabaseCount('stock_movements', 0);
         $this->assertDatabaseCount('order_artworks', 2);
         $this->assertDatabaseHas('order_artworks', ['purpose' => 'proof', 'file_type' => 'image']);
         $this->assertDatabaseHas('order_artworks', ['purpose' => 'design', 'file_type' => 'pdf']);
         OrderArtwork::pluck('file_path')->each(fn (string $path) => Storage::disk('local')->assertExists($path));
-        $this->assertSame(0.0, (float) InkStock::where('machine', 'dtf')->where('color', 'cyan')->value('quantity_remaining'));
     }
 
     public function test_order_can_create_a_walk_in_customer_without_deducting_customer_supplied_garment_stock(): void
@@ -105,7 +92,7 @@ class OrderManagementTest extends TestCase
         ]);
     }
 
-    public function test_order_stock_validation_leaves_no_partial_order_or_deduction(): void
+    public function test_order_quantities_are_not_limited_by_storage_stock(): void
     {
         $this->seed();
         $banner = Material::where('name', 'Banner 1M')->firstOrFail();
@@ -122,9 +109,9 @@ class OrderManagementTest extends TestCase
             ]],
         ]);
 
-        $response->assertRedirect(route('orders.create'))
-            ->assertSessionHasErrors('items.0.quantity_or_meters');
-        $this->assertDatabaseCount('orders', 0);
+        $order = Order::firstOrFail();
+        $response->assertRedirect(route('orders.show', $order));
+        $this->assertDatabaseCount('orders', 1);
         $this->assertDatabaseCount('stock_movements', 0);
         $this->assertDatabaseHas('materials', ['id' => $banner->id, 'quantity_remaining' => 1]);
     }
@@ -188,5 +175,39 @@ class OrderManagementTest extends TestCase
             ->assertSessionHasErrors('amount_paid');
 
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'in_production']);
+    }
+
+    public function test_completing_an_order_creates_one_historical_sale_snapshot(): void
+    {
+        $customer = Customer::create(['name' => 'Sale Customer']);
+        $order = Order::create([
+            'customer_id' => $customer->id,
+            'status' => 'ready',
+            'total_amount' => 29,
+        ]);
+        $order->items()->create([
+            'item_type' => 'banner',
+            'quantity_or_meters' => 2,
+            'unit_price' => 15,
+            'discount' => 1,
+            'subtotal' => 29,
+        ]);
+
+        $payload = [
+            'status' => 'completed',
+            'amount_paid' => 20,
+            'payment_method' => 'mpesa',
+        ];
+
+        $this->patch(route('orders.update', $order), $payload)->assertRedirect();
+        $this->patch(route('orders.update', $order), $payload)->assertRedirect();
+
+        $this->assertDatabaseCount('sales', 1);
+        $sale = Sale::firstOrFail();
+        $this->assertSame($order->id, $sale->order_id);
+        $this->assertSame('29.00', $sale->total_amount);
+        $this->assertSame('20.00', $sale->amount_paid);
+        $this->assertSame('banner', $sale->items_snapshot[0]['item_type']);
+        $this->assertSame('2.000', $sale->items_snapshot[0]['quantity']);
     }
 }
