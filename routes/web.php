@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\MaterialStockController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\SaleController;
@@ -18,7 +19,8 @@ Route::get('/stock/history', [StockHistoryController::class, 'index'])->name('st
 
 Route::get('/sales/export', [SaleController::class, 'export'])->name('sales.export');
 Route::get('/sales', [SaleController::class, 'index'])->name('sales.index');
-Route::view('/expenses', 'expenses.index')->name('expenses.index');
+Route::get('/expenses/export', [ExpenseController::class, 'export'])->name('expenses.export');
+Route::resource('expenses', ExpenseController::class)->except('show');
 
 Route::resource('customers', CustomerController::class)->except('destroy');
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\InkStock;
 use App\Models\Material;
+use App\Services\StockPurchaseService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -42,23 +43,14 @@ class MaterialStockController extends Controller
         ]);
     }
 
-    public function addMaterial(Request $request, Material $material): RedirectResponse
+    public function addMaterial(Request $request, Material $material, StockPurchaseService $stockPurchaseService): RedirectResponse
     {
         $validated = $request->validate([
             'quantity' => ['required', 'numeric', 'integer', 'gt:0', 'max:999999'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        DB::transaction(function () use ($material, $validated): void {
-            $lockedMaterial = Material::whereKey($material->id)->lockForUpdate()->firstOrFail();
-            $lockedMaterial->increment('quantity_remaining', $validated['quantity']);
-
-            $lockedMaterial->stockMovements()->create([
-                'type' => 'purchase',
-                'quantity' => $validated['quantity'],
-                'notes' => $validated['notes'] ?? null,
-            ]);
-        });
+        $stockPurchaseService->addMaterial($material, (int) $validated['quantity'], $validated['notes'] ?? null);
 
         return back()->with('success', "Stock added to {$material->name}.");
     }
@@ -83,23 +75,14 @@ class MaterialStockController extends Controller
         return back()->with('success', "One unit of {$material->name} marked as used.");
     }
 
-    public function addInk(Request $request, InkStock $inkStock): RedirectResponse
+    public function addInk(Request $request, InkStock $inkStock, StockPurchaseService $stockPurchaseService): RedirectResponse
     {
         $validated = $request->validate([
             'quantity' => ['required', 'numeric', 'integer', 'gt:0', 'max:999999'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        DB::transaction(function () use ($inkStock, $validated): void {
-            $lockedInkStock = InkStock::whereKey($inkStock->id)->lockForUpdate()->firstOrFail();
-            $lockedInkStock->increment('quantity_remaining', $validated['quantity']);
-
-            $lockedInkStock->stockMovements()->create([
-                'type' => 'purchase',
-                'quantity' => $validated['quantity'],
-                'notes' => $validated['notes'] ?? null,
-            ]);
-        });
+        $stockPurchaseService->addInk($inkStock, (int) $validated['quantity'], $validated['notes'] ?? null);
 
         return back()->with('success', 'Ink stock added.');
     }
