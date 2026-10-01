@@ -3,6 +3,7 @@
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\MaterialStockController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\SaleController;
 use App\Http\Controllers\StockHistoryController;
 use Illuminate\Support\Facades\Route;
 
@@ -15,7 +16,8 @@ Route::post('/stock/inks/{inkStock}', [MaterialStockController::class, 'addInk']
 Route::post('/stock/inks/{inkStock}/use', [MaterialStockController::class, 'useInk'])->name('stock.inks.use');
 Route::get('/stock/history', [StockHistoryController::class, 'index'])->name('stock.history');
 
-Route::view('/sales', 'sales.index')->name('sales.index');
+Route::get('/sales/export', [SaleController::class, 'export'])->name('sales.export');
+Route::get('/sales', [SaleController::class, 'index'])->name('sales.index');
 Route::view('/expenses', 'expenses.index')->name('expenses.index');
 
 Route::resource('customers', CustomerController::class)->except('destroy');

@@ -31,4 +31,28 @@ class Sale extends Model
     {
         return $this->belongsTo(Customer::class);
     }
+
+    public function itemsSummary(): string
+    {
+        return collect($this->items_snapshot)
+            ->map(function (array $item): string {
+                $itemType = $item['item_type'] ?? '';
+                $typeLabel = match ($itemType) {
+                    'dtf_garment' => 'DTF Garment',
+                    'banner' => 'Banner',
+                    'sertine' => 'Sertine',
+                    'sticker' => 'Sticker',
+                    default => str($itemType)->replace('_', ' ')->title()->toString(),
+                };
+                $materialName = trim((string) ($item['material_name'] ?? ''));
+                $itemLabel = $itemType === 'dtf_garment'
+                    ? $typeLabel.($materialName !== '' ? " ({$materialName})" : '')
+                    : ($materialName !== '' ? $materialName : $typeLabel);
+                $quantity = rtrim(rtrim(number_format((float) ($item['quantity'] ?? 0), 3, '.', ''), '0'), '.');
+                $unit = $itemType === 'dtf_garment' ? 'pc' : 'm';
+
+                return "{$quantity} {$unit} {$itemLabel}";
+            })
+            ->implode(', ');
+    }
 }
