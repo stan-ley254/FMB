@@ -10,6 +10,12 @@
             <h1 class="mt-2 text-3xl font-bold tracking-tight text-slate-900">Materials &amp; Ink Stock</h1>
             <p class="mt-2 text-sm text-slate-500">Current quantities and stock additions for both machines.</p>
         </div>
+        <div class="flex flex-wrap gap-2">
+            <a href="{{ route('stock.materials.create') }}" class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Add New Material</a>
+            @if ($hasAvailableInkCombination)
+                <a href="{{ route('stock.inks.create') }}" class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Add Ink Stock</a>
+            @endif
+        </div>
     </div>
 
     <div class="space-y-7">
@@ -26,9 +32,14 @@
                         @foreach ($materials as $material)
                             @php($threshold = $material->name === 'TPU Powder' ? 2 : 10)
                             @php($isLow = (float) $material->quantity_remaining < $threshold)
-                            <div class="grid gap-4 px-5 py-4 md:grid-cols-[minmax(10rem,1fr)_8rem_minmax(20rem,1.4fr)_auto] md:items-center">
+                            <div class="grid gap-4 px-5 py-4 md:grid-cols-[minmax(10rem,1fr)_8rem_minmax(20rem,1.4fr)_auto] md:items-center {{ $material->is_active ? '' : 'bg-slate-50 opacity-70' }}">
                                 <div>
-                                    <p class="font-medium text-slate-800">{{ $material->name }}</p>
+                                    <p class="font-medium text-slate-800">
+                                        {{ $material->name }}
+                                        @unless ($material->is_active)
+                                            <span class="ml-1 rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">Inactive</span>
+                                        @endunless
+                                    </p>
                                     <p class="mt-1 text-xs text-slate-500">{{ str($material->machine ?? 'shared')->replace('_', ' ')->title() }}</p>
                                     <div class="mt-2 space-y-0.5 text-xs text-slate-500">
                                         <p>
@@ -42,6 +53,22 @@
                                         </p>
                                         <p>Last restocked: {{ $material->last_restocked_at ? \Illuminate\Support\Carbon::parse($material->last_restocked_at)->format('M j, Y') : '—' }}</p>
                                         <a class="font-medium text-blue-700 hover:underline" href="{{ route('stock.history', ['item' => 'material:'.$material->id]) }}">View history</a>
+                                        <div class="flex flex-wrap items-center gap-3 pt-1">
+                                            <a class="font-medium text-blue-700 hover:underline" href="{{ route('stock.materials.edit', $material) }}">Edit</a>
+                                            @if ($material->is_active && ($material->stock_movements_exists || $material->order_items_exists || $material->expenses_exists))
+                                                <form method="POST" action="{{ route('stock.materials.destroy', $material) }}" onsubmit="return confirm('Deactivate this material? It has historical references.');">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button class="font-medium text-red-700 hover:underline">Deactivate</button>
+                                                </form>
+                                            @elseif (! $material->stock_movements_exists && ! $material->order_items_exists && ! $material->expenses_exists)
+                                                <form method="POST" action="{{ route('stock.materials.destroy', $material) }}" onsubmit="return confirm('Permanently delete this material?');">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button class="font-medium text-red-700 hover:underline">Delete</button>
+                                                </form>
+                                            @endif
+                                        </div>
                                     </div>
                                 </div>
                                 <div>
@@ -84,9 +111,14 @@
                         <div class="divide-y divide-slate-100">
                             @foreach ($inkStocksByMachine->get($machine, collect()) as $inkStock)
                                 @php($isLow = (float) $inkStock->quantity_remaining < 1)
-                                <div class="grid gap-4 py-4 md:grid-cols-[minmax(10rem,1fr)_8rem_minmax(20rem,1.4fr)_auto] md:items-center">
+                                <div class="grid gap-4 py-4 md:grid-cols-[minmax(10rem,1fr)_8rem_minmax(20rem,1.4fr)_auto] md:items-center {{ $inkStock->is_active ? '' : 'bg-slate-50 opacity-70' }}">
                                     <div>
-                                        <p class="font-medium text-slate-800">{{ $label }} {{ str($inkStock->color)->title() }}</p>
+                                        <p class="font-medium text-slate-800">
+                                            {{ $label }} {{ str($inkStock->color)->title() }}
+                                            @unless ($inkStock->is_active)
+                                                <span class="ml-1 rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">Inactive</span>
+                                            @endunless
+                                        </p>
                                         <div class="mt-2 space-y-0.5 text-xs text-slate-500">
                                             <p>
                                                 Last used:
@@ -99,6 +131,22 @@
                                             </p>
                                             <p>Last restocked: {{ $inkStock->last_restocked_at ? \Illuminate\Support\Carbon::parse($inkStock->last_restocked_at)->format('M j, Y') : '—' }}</p>
                                             <a class="font-medium text-blue-700 hover:underline" href="{{ route('stock.history', ['item' => 'ink:'.$inkStock->id]) }}">View history</a>
+                                            <div class="flex flex-wrap items-center gap-3 pt-1">
+                                                <a class="font-medium text-blue-700 hover:underline" href="{{ route('stock.inks.edit', $inkStock) }}">Edit</a>
+                                                @if ($inkStock->is_active && ($inkStock->stock_movements_exists || $inkStock->expenses_exists))
+                                                    <form method="POST" action="{{ route('stock.inks.destroy', $inkStock) }}" onsubmit="return confirm('Deactivate this ink stock? It has historical references.');">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button class="font-medium text-red-700 hover:underline">Deactivate</button>
+                                                    </form>
+                                                @elseif (! $inkStock->stock_movements_exists && ! $inkStock->expenses_exists)
+                                                    <form method="POST" action="{{ route('stock.inks.destroy', $inkStock) }}" onsubmit="return confirm('Permanently delete this ink stock?');">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button class="font-medium text-red-700 hover:underline">Delete</button>
+                                                    </form>
+                                                @endif
+                                            </div>
                                         </div>
                                     </div>
                                     <p class="font-semibold {{ $isLow ? 'text-orange-700' : 'text-slate-800' }}">

@@ -205,8 +205,8 @@ class ExpenseController extends Controller
         return [
             'categories' => self::CATEGORIES,
             'banks' => self::BANKS,
-            'materials' => Material::orderBy('name')->get(),
-            'inkStocks' => InkStock::orderBy('machine')->orderBy('color')->get(),
+            'materials' => Material::where('is_active', true)->orderBy('name')->get(),
+            'inkStocks' => InkStock::where('is_active', true)->orderBy('machine')->orderBy('color')->get(),
         ];
     }
 
@@ -247,8 +247,8 @@ class ExpenseController extends Controller
         $addsToStock = $creating && $request->boolean('adds_to_stock');
         $stockType = $request->input('stock_type');
         $stockIdRules = match ($stockType) {
-            'material' => [Rule::exists('materials', 'id')],
-            'ink' => [Rule::exists('ink_stocks', 'id')],
+            'material' => [Rule::exists('materials', 'id')->where('is_active', true)],
+            'ink' => [Rule::exists('ink_stocks', 'id')->where('is_active', true)],
             default => [],
         };
 

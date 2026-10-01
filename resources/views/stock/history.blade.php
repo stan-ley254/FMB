@@ -19,12 +19,12 @@
                 <option value="">All items</option>
                 <optgroup label="Materials">
                     @foreach ($materials as $material)
-                        <option value="material:{{ $material->id }}" @selected(($filters['item'] ?? null) === 'material:'.$material->id)>{{ $material->name }}</option>
+                        <option value="material:{{ $material->id }}" @selected(($filters['item'] ?? null) === 'material:'.$material->id)>{{ $material->name }}{{ $material->is_active ? '' : ' (Inactive)' }}</option>
                     @endforeach
                 </optgroup>
                 <optgroup label="Ink">
                     @foreach ($inkStocks as $inkStock)
-                        <option value="ink:{{ $inkStock->id }}" @selected(($filters['item'] ?? null) === 'ink:'.$inkStock->id)>{{ str($inkStock->machine)->replace('_', ' ')->title() }} {{ str($inkStock->color)->title() }}</option>
+                        <option value="ink:{{ $inkStock->id }}" @selected(($filters['item'] ?? null) === 'ink:'.$inkStock->id)>{{ str($inkStock->machine)->replace('_', ' ')->title() }} {{ str($inkStock->color)->title() }}{{ $inkStock->is_active ? '' : ' (Inactive)' }}</option>
                     @endforeach
                 </optgroup>
             </select>
@@ -67,9 +67,10 @@
                 <tbody class="divide-y divide-slate-100">
                     @forelse ($movements as $movement)
                         @php($itemName = $movement->material?->name ?? ($movement->inkStock ? str($movement->inkStock->machine)->replace('_', ' ')->title().' '.str($movement->inkStock->color)->title() : 'Stock item'))
+                        @php($isInactiveItem = ($movement->material && ! $movement->material->is_active) || ($movement->inkStock && ! $movement->inkStock->is_active))
                         <tr>
                             <td class="whitespace-nowrap px-5 py-4 text-slate-600">{{ $movement->created_at->format('M j, Y H:i') }}</td>
-                            <td class="px-5 py-4 font-medium text-slate-800">{{ $itemName }}</td>
+                            <td class="px-5 py-4 font-medium text-slate-800">{{ $itemName }} @if ($isInactiveItem)<span class="ml-1 rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">Inactive</span>@endif</td>
                             <td class="px-5 py-4">
                                 <span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ $movement->type === 'usage' ? 'bg-orange-100 text-orange-800' : 'bg-emerald-100 text-emerald-800' }}">{{ str($movement->type)->title() }}</span>
                             </td>

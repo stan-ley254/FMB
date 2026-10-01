@@ -11,8 +11,18 @@ use Illuminate\Support\Facades\Route;
 Route::view('/', 'welcome')->name('home');
 
 Route::get('/stock', [MaterialStockController::class, 'index'])->name('stock.index');
+Route::get('/stock/materials/create', [MaterialStockController::class, 'createMaterial'])->name('stock.materials.create');
+Route::post('/stock/materials', [MaterialStockController::class, 'storeMaterial'])->name('stock.materials.store');
+Route::get('/stock/materials/{material}/edit', [MaterialStockController::class, 'editMaterial'])->name('stock.materials.edit');
+Route::patch('/stock/materials/{material}', [MaterialStockController::class, 'updateMaterial'])->name('stock.materials.update');
+Route::delete('/stock/materials/{material}', [MaterialStockController::class, 'destroyMaterial'])->name('stock.materials.destroy');
 Route::post('/stock/materials/{material}', [MaterialStockController::class, 'addMaterial'])->name('stock.materials.add');
 Route::post('/stock/materials/{material}/use', [MaterialStockController::class, 'useMaterial'])->name('stock.materials.use');
+Route::get('/stock/inks/create', [MaterialStockController::class, 'createInk'])->name('stock.inks.create');
+Route::post('/stock/inks', [MaterialStockController::class, 'storeInk'])->name('stock.inks.store');
+Route::get('/stock/inks/{inkStock}/edit', [MaterialStockController::class, 'editInk'])->name('stock.inks.edit');
+Route::patch('/stock/inks/{inkStock}', [MaterialStockController::class, 'updateInk'])->name('stock.inks.update');
+Route::delete('/stock/inks/{inkStock}', [MaterialStockController::class, 'destroyInk'])->name('stock.inks.destroy');
 Route::post('/stock/inks/{inkStock}', [MaterialStockController::class, 'addInk'])->name('stock.inks.add');
 Route::post('/stock/inks/{inkStock}/use', [MaterialStockController::class, 'useInk'])->name('stock.inks.use');
 Route::get('/stock/history', [StockHistoryController::class, 'index'])->name('stock.history');

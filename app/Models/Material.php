@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'category', 'unit', 'quantity_remaining', 'unit_cost', 'machine'])]
+#[Fillable(['name', 'category', 'unit', 'quantity_remaining', 'unit_cost', 'machine', 'is_active'])]
 class Material extends Model
 {
     protected function casts(): array
@@ -14,6 +14,7 @@ class Material extends Model
         return [
             'quantity_remaining' => 'decimal:0',
             'unit_cost' => 'decimal:2',
+            'is_active' => 'boolean',
         ];
     }
 

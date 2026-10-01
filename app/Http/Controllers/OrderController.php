@@ -52,7 +52,7 @@ class OrderController extends Controller
     {
         return view('orders.create', [
             'customers' => Customer::orderBy('name')->get(),
-            'materials' => Material::orderBy('name')->get(),
+            'materials' => Material::where('is_active', true)->orderBy('name')->get(),
             'selectedCustomerId' => $request->integer('customer_id') ?: null,
         ]);
     }
@@ -87,7 +87,9 @@ class OrderController extends Controller
                         || (bool) ($itemData['garment_sourced_by_shop'] ?? false);
 
                     if ($requiresMaterial) {
-                        $material = Material::whereKey($itemData['material_id'])->firstOrFail();
+                        $material = Material::whereKey($itemData['material_id'])
+                            ->where('is_active', true)
+                            ->firstOrFail();
                     }
 
                     $quantity = (float) $itemData['quantity_or_meters'];

@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\Material;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class StoreOrderRequest extends FormRequest
@@ -27,7 +28,7 @@ class StoreOrderRequest extends FormRequest
             'notes' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1', 'max:30'],
             'items.*.item_type' => ['required', 'in:banner,sertine,sticker,dtf_garment'],
-            'items.*.material_id' => ['nullable', 'integer', 'exists:materials,id'],
+            'items.*.material_id' => ['nullable', 'integer', Rule::exists('materials', 'id')->where('is_active', true)],
             'items.*.quantity_or_meters' => ['required', 'numeric', 'gt:0', 'max:999999.999'],
             'items.*.unit_price' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
             'items.*.discount' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
@@ -51,7 +52,7 @@ class StoreOrderRequest extends FormRequest
                     ->filter()
                     ->unique()
                     ->values();
-                $materials = Material::whereKey($materialIds)->get()->keyBy('id');
+                $materials = Material::whereKey($materialIds)->where('is_active', true)->get()->keyBy('id');
 
                 foreach ($items as $index => $item) {
                     $itemType = $item['item_type'];
