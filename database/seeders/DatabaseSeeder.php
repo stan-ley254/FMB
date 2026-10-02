@@ -52,5 +52,7 @@ class DatabaseSeeder extends Seeder
         ] as $customer) {
             Customer::firstOrCreate(['name' => $customer['name']], $customer);
         }
+
+        $this->call(CatalogItemSeeder::class);
     }
 }

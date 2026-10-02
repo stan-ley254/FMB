@@ -8,8 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
-    'order_id', 'item_type', 'material_id', 'quantity_or_meters', 'unit_price',
-    'discount', 'garment_sourced_by_shop', 'subtotal',
+    'order_id', 'item_type', 'material_id', 'catalog_item_id', 'catalog_item_name', 'catalog_item_unit',
+    'quantity_or_meters', 'unit_price', 'discount', 'garment_sourced_by_shop', 'subtotal',
 ])]
 class OrderItem extends Model
 {
@@ -32,6 +32,11 @@ class OrderItem extends Model
     public function material(): BelongsTo
     {
         return $this->belongsTo(Material::class);
+    }
+
+    public function catalogItem(): BelongsTo
+    {
+        return $this->belongsTo(CatalogItem::class);
     }
 
     public function artworks(): HasMany

@@ -58,7 +58,7 @@
                     @foreach ($item->artworks as $artwork)
                         @php($artworkCount++)
                         <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-                            <div><p class="font-medium text-slate-800">{{ $item->material?->name ?? str($item->item_type)->replace('_', ' ')->title() }} · {{ str($artwork->purpose)->title() }}</p>
+                            <div><p class="font-medium text-slate-800">{{ $item->catalog_item_name ?? $item->material?->name ?? str($item->item_type)->replace('_', ' ')->title() }} · {{ str($artwork->purpose)->title() }}</p>
                                 <p class="mt-1 text-xs text-slate-500">Order #{{ $order->id }} · {{ $artwork->uploaded_at->format('M j, Y') }}</p></div>
                             <a href="{{ route('artworks.download', $artwork) }}" class="font-medium text-blue-700 hover:text-blue-900">Download {{ strtoupper($artwork->file_type) }}</a>
                         </div>

@@ -9,6 +9,8 @@
             <p class="eyebrow">JOB TRACKING</p>
             <h1 class="mt-2 text-3xl font-bold tracking-tight text-slate-900">Orders</h1>
         </div>
+        <a href="{{ route('quick-sales.create') }}" class="rounded-lg border border-blue-300 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-100">Quick Sale</a>
+        <a href="{{ route('catalog.index') }}" class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Price list</a>
         <a href="{{ route('orders.create') }}" class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Create order</a>
     </div>
 

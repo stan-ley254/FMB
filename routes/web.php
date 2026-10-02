@@ -1,9 +1,11 @@
 <?php
 
+use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\MaterialStockController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\QuickSaleController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\StockHistoryController;
 use Illuminate\Support\Facades\Route;
@@ -29,6 +31,9 @@ Route::get('/stock/history', [StockHistoryController::class, 'index'])->name('st
 
 Route::get('/sales/export', [SaleController::class, 'export'])->name('sales.export');
 Route::get('/sales', [SaleController::class, 'index'])->name('sales.index');
+Route::resource('catalog', CatalogController::class)
+    ->except(['destroy', 'show'])
+    ->parameters(['catalog' => 'catalogItem']);
 Route::get('/expenses/export', [ExpenseController::class, 'export'])->name('expenses.export');
 Route::resource('expenses', ExpenseController::class)->except('show');
 
@@ -36,6 +41,8 @@ Route::resource('customers', CustomerController::class)->except('destroy');
 
 Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
 Route::get('/orders/create', [OrderController::class, 'create'])->name('orders.create');
+Route::get('/quick-sale', [QuickSaleController::class, 'create'])->name('quick-sales.create');
+Route::post('/quick-sale', [QuickSaleController::class, 'store'])->name('quick-sales.store');
 Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
 Route::get('/orders/{order}', [OrderController::class, 'show'])->name('orders.show');
 Route::patch('/orders/{order}', [OrderController::class, 'update'])->name('orders.update');

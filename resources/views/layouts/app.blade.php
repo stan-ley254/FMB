@@ -17,6 +17,8 @@
         <nav aria-label="Main navigation">
             <a class="nav-link {{ request()->routeIs('home') ? 'active' : '' }}" href="{{ route('home') }}"><span class="nav-icon">⌂</span> Overview</a>
             <a class="nav-link {{ request()->routeIs('orders.*') ? 'active' : '' }}" href="{{ route('orders.index') }}"><span class="nav-icon">▤</span> Orders</a>
+            <a class="nav-link {{ request()->routeIs('quick-sales.*') ? 'active' : '' }}" href="{{ route('quick-sales.create') }}"><span class="nav-icon">＋</span> Quick Sale</a>
+            <a class="nav-link {{ request()->routeIs('catalog.*') ? 'active' : '' }}" href="{{ route('catalog.index') }}"><span class="nav-icon">☷</span> Price list</a>
             <a class="nav-link {{ request()->routeIs('customers.*') ? 'active' : '' }}" href="{{ route('customers.index') }}"><span class="nav-icon">♧</span> Customers</a>
             <a class="nav-link {{ request()->routeIs('stock.*') ? 'active' : '' }}" href="{{ route('stock.index') }}"><span class="nav-icon">▦</span> Materials &amp; ink</a>
             <a class="nav-link {{ request()->routeIs('stock.history') ? 'active' : '' }}" href="{{ route('stock.history') }}"><span class="nav-icon">◷</span> Stock history</a>

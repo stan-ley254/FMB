@@ -73,7 +73,7 @@ class SaleController extends Controller
             'to' => ['nullable', 'date', 'after_or_equal:from'],
             'customer' => ['nullable', 'string', 'max:255'],
             'material' => ['nullable', 'string', 'max:255'],
-            'item_type' => ['nullable', Rule::in(['banner', 'sertine', 'sticker', 'dtf_garment'])],
+            'item_type' => ['nullable', Rule::in(['banner', 'sertine', 'sticker', 'dtf_garment', 'dtf_print'])],
         ]);
     }
 

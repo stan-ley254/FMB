@@ -21,8 +21,8 @@
                     @foreach ($order->items as $item)
                         <article class="px-5 py-5">
                             <div class="flex flex-wrap justify-between gap-3">
-                                <div><h3 class="font-semibold text-slate-800">{{ $item->material?->name ?? str($item->item_type)->replace('_', ' ')->title() }}</h3>
-                                    <p class="mt-1 text-sm text-slate-500">{{ number_format((float) $item->quantity_or_meters, 3) }} {{ $item->item_type === 'dtf_garment' ? 'pieces' : 'meters' }} × {{ number_format((float) $item->unit_price, 2) }}{{ $item->discount ? ' · Discount '.number_format((float) $item->discount, 2) : '' }}</p>
+                                <div><h3 class="font-semibold text-slate-800">{{ $item->catalog_item_name ?? $item->material?->name ?? str($item->item_type)->replace('_', ' ')->title() }}</h3>
+                                    <p class="mt-1 text-sm text-slate-500">{{ number_format((float) $item->quantity_or_meters, $item->catalog_item_unit === 'piece' ? 0 : 3) }} {{ $item->catalog_item_unit === 'piece' ? 'pieces' : ($item->catalog_item_unit === 'meter' ? 'meters' : ($item->item_type === 'dtf_garment' ? 'pieces' : 'meters')) }} × {{ number_format((float) $item->unit_price, 2) }}{{ $item->discount ? ' · Discount '.number_format((float) $item->discount, 2) : '' }}</p>
                                     @if ($item->item_type === 'dtf_garment')<p class="mt-1 text-xs text-slate-500">{{ $item->garment_sourced_by_shop ? 'Blank garment supplied by shop' : 'Blank garment supplied by customer' }}</p>@endif
                                 </div>
                                 <p class="font-semibold text-slate-800">{{ number_format((float) $item->subtotal, 2) }}</p>

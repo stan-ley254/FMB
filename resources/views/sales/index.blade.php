@@ -22,7 +22,7 @@
             <label for="item_type" class="mb-1 block text-xs font-medium text-slate-600">Item type</label>
             <select id="item_type" name="item_type" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
                 <option value="">All types</option>
-                @foreach (['banner', 'sertine', 'sticker', 'dtf_garment'] as $itemType)
+                @foreach (['banner', 'sertine', 'sticker', 'dtf_print', 'dtf_garment'] as $itemType)
                     <option value="{{ $itemType }}" @selected(($filters['item_type'] ?? '') === $itemType)>{{ $itemType === 'dtf_garment' ? 'DTF Garment' : str($itemType)->title() }}</option>
                 @endforeach
             </select>

@@ -3,12 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreOrderRequest;
+use App\Models\CatalogItem;
 use App\Models\Customer;
 use App\Models\Material;
 use App\Models\Order;
-use App\Models\OrderItem;
 use App\Models\OrderArtwork;
-use App\Models\Sale;
+use App\Services\CompletedOrderSaleService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -80,18 +80,26 @@ class OrderController extends Controller
                     'is_company_job' => (bool) ($validated['is_company_job'] ?? false),
                 ]);
                 $totalAmount = 0;
+                $catalogItems = CatalogItem::whereKey(
+                    collect($validated['items'])->pluck('catalog_item_id')->filter()->unique(),
+                )->get()->keyBy('id');
 
                 foreach ($validated['items'] as $index => $itemData) {
+                    $catalogItem = isset($itemData['catalog_item_id'])
+                        ? $catalogItems->get((int) $itemData['catalog_item_id'])
+                        : null;
                     $material = null;
-                    $requiresMaterial = $itemData['item_type'] !== 'dtf_garment'
-                        || (bool) ($itemData['garment_sourced_by_shop'] ?? false);
+                    $requiresMaterial = $catalogItem !== null
+                        ? $catalogItem->material_id !== null
+                        : ($itemData['item_type'] !== 'dtf_garment'
+                            && $itemData['item_type'] !== 'dtf_print')
+                            || (bool) ($itemData['garment_sourced_by_shop'] ?? false);
 
                     if ($requiresMaterial) {
                         $material = Material::whereKey($itemData['material_id'])
                             ->where('is_active', true)
                             ->firstOrFail();
                     }
-
                     $quantity = (float) $itemData['quantity_or_meters'];
                     $unitPrice = (float) $itemData['unit_price'];
                     $discount = (float) ($itemData['discount'] ?? 0);
@@ -99,6 +107,9 @@ class OrderController extends Controller
                     $orderItem = $order->items()->create([
                         'item_type' => $itemData['item_type'],
                         'material_id' => $material?->id,
+                        'catalog_item_id' => $catalogItem?->id,
+                        'catalog_item_name' => $catalogItem?->name,
+                        'catalog_item_unit' => $catalogItem?->unit,
                         'quantity_or_meters' => $quantity,
                         'unit_price' => $unitPrice,
                         'discount' => $itemData['discount'] ?? null,
@@ -153,7 +164,7 @@ class OrderController extends Controller
         return view('orders.show', compact('order'));
     }
 
-    public function update(Request $request, Order $order): RedirectResponse
+    public function update(Request $request, Order $order, CompletedOrderSaleService $completedOrderSaleService): RedirectResponse
     {
         $validated = $request->validate([
             'status' => ['required', 'in:pending,in_production,ready,completed'],
@@ -176,7 +187,7 @@ class OrderController extends Controller
             'bank_name' => ['nullable', 'required_if:payment_method,bank', 'string', 'max:255'],
         ]);
 
-        DB::transaction(function () use ($order, $validated): void {
+        DB::transaction(function () use ($order, $validated, $completedOrderSaleService): void {
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             $lockedOrder->update([
                 'status' => $validated['status'],
@@ -188,28 +199,7 @@ class OrderController extends Controller
             ]);
 
             if ($validated['status'] === 'completed') {
-                $lockedOrder->loadMissing(['customer', 'items.material']);
-
-                Sale::firstOrCreate(
-                    ['order_id' => $lockedOrder->id],
-                    [
-                        'customer_id' => $lockedOrder->customer_id,
-                        'total_amount' => $lockedOrder->total_amount,
-                        'amount_paid' => $lockedOrder->amount_paid,
-                        'payment_method' => $lockedOrder->payment_method,
-                        'bank_name' => $lockedOrder->bank_name,
-                        'completed_at' => now(),
-                        'items_snapshot' => $lockedOrder->items->map(fn (OrderItem $item): array => [
-                            'item_type' => $item->item_type,
-                            'material_id' => $item->material_id,
-                            'material_name' => $item->material?->name,
-                            'quantity' => $item->quantity_or_meters,
-                            'unit_price' => $item->unit_price,
-                            'discount' => $item->discount,
-                            'subtotal' => $item->subtotal,
-                        ])->values()->all(),
-                    ],
-                );
+                $completedOrderSaleService->createSale($lockedOrder);
             }
         });
 
