@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\Material;
 use App\Models\Order;
 use App\Models\Sale;
+use Database\Seeders\CatalogItemSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -235,5 +236,73 @@ class QuickSaleTest extends TestCase
         $this->get(route('catalog.index'))
             ->assertSee('Custom Banner Service')
             ->assertSee('Inactive');
+    }
+
+    public function test_catalog_seeder_adds_all_listed_items_once_without_overwriting_existing_items(): void
+    {
+        $this->seed();
+        CatalogItem::where('name', 'Banner 1M')->update(['default_unit_price' => 999]);
+
+        $this->seed(CatalogItemSeeder::class);
+
+        $this->assertDatabaseCount('catalog_items', 63);
+        $this->assertDatabaseHas('catalog_items', [
+            'name' => 'Banner 1M',
+            'default_unit_price' => 999,
+            'material_id' => Material::where('name', 'Banner 1M')->value('id'),
+        ]);
+        $this->assertDatabaseHas('catalog_items', [
+            'name' => 'A4 Duplicate 1 Color',
+            'category' => 'Receipt Books',
+            'unit' => 'piece',
+            'default_unit_price' => 600,
+            'material_id' => null,
+        ]);
+        $this->assertDatabaseHas('catalog_items', [
+            'name' => 'Digital Seal',
+            'category' => 'Stamps & Seals',
+            'unit' => 'piece',
+            'default_unit_price' => 5000,
+            'material_id' => null,
+        ]);
+        $this->assertDatabaseHas('catalog_items', [
+            'name' => 'Sublimation Printing',
+            'category' => 'Sub Printing',
+            'unit' => 'piece',
+            'default_unit_price' => 50,
+            'material_id' => null,
+        ]);
+
+        $this->assertSame(
+            0,
+            CatalogItem::query()
+                ->whereIn('category', [
+                    'Receipt Books',
+                    'Paper Printing',
+                    'Caps',
+                    'Design',
+                    'Stamps & Seals',
+                    'Reflectors',
+                    'Mugs',
+                    'Bottles',
+                    'T-Shirts',
+                    'Pens',
+                    'Other',
+                    'Sub Printing',
+                ])
+                ->whereNotNull('material_id')
+                ->count(),
+        );
+    }
+
+    public function test_quick_sale_picker_distinguishes_piece_sticker_prints_from_meter_roll_printing(): void
+    {
+        $this->seed();
+
+        $this->get(route('quick-sales.create'))
+            ->assertSee('Sticker Print A3 · 50.00 / piece')
+            ->assertSee('Sticker Print A4 · 30.00 / piece')
+            ->assertSee('Sticker Print A5 · 20.00 / piece')
+            ->assertSee('White Sticker Printing · 400.00 / meter');
     }
 }
