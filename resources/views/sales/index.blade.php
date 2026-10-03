@@ -33,6 +33,35 @@
         </div>
     </form>
 
+    <section class="mb-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="sales-usage-heading">
+        <div class="mb-4">
+            <h2 id="sales-usage-heading" class="text-base font-semibold text-slate-900">Filtered item usage</h2>
+            <p class="mt-1 text-sm text-slate-500">Quantities are grouped from the historical sale snapshots shown below.</p>
+        </div>
+        @if ($usageSummary === [])
+            <p class="text-sm text-slate-500">No item usage matches these filters.</p>
+        @else
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                @foreach ($usageSummary as $usageItem)
+                    <article class="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
+                        <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
+                            {{ match ($usageItem['item_type']) {
+                                'dtf_garment' => 'DTF Garment',
+                                'dtf_print' => 'DTF Print',
+                                default => str($usageItem['item_type'])->replace('_', ' ')->title(),
+                            } }}
+                        </p>
+                        <p class="mt-1 font-medium text-slate-800">{{ $usageItem['name'] }}</p>
+                        <p class="mt-1 text-sm text-slate-600">
+                            {{ rtrim(rtrim(number_format($usageItem['quantity'], 3, '.', ''), '0'), '.') }}
+                            {{ $usageItem['unit'] === 'piece' ? 'pcs sold' : 'm sold' }}
+                        </p>
+                    </article>
+                @endforeach
+            </div>
+        @endif
+    </section>
+
     <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div class="overflow-x-auto">
             <table class="w-full min-w-[1000px] text-left text-sm">
