@@ -86,7 +86,7 @@ RUN composer dump-autoload \
 # ============================================================
 COPY docker/supervisord.conf \
     /etc/supervisor/conf.d/supervisord.conf
-
+COPY docker/ssl/ca.pem /etc/ssl/certs/ca.pem
 
 # ============================================================
 # Startup script
