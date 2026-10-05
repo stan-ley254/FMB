@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use App\Models\CatalogItem;
-use App\Models\Material;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -28,11 +27,11 @@ class StoreOrderRequest extends FormRequest
             'due_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1', 'max:30'],
-            'items.*.item_type' => ['required', 'in:banner,sertine,sticker,dtf_garment,dtf_print'],
-            'items.*.material_id' => ['nullable', 'integer', Rule::exists('materials', 'id')->where('is_active', true)],
-            'items.*.catalog_item_id' => ['nullable', 'integer', Rule::exists('catalog_items', 'id')->where('is_active', true)],
+            'items.*.item_type' => ['prohibited'],
+            'items.*.material_id' => ['prohibited'],
+            'items.*.catalog_item_id' => ['required', 'integer', Rule::exists('catalog_items', 'id')->where('is_active', true)],
             'items.*.quantity_or_meters' => ['required', 'numeric', 'gt:0', 'max:999999.999'],
-            'items.*.unit_price' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
+            'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
             'items.*.discount' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
             'items.*.garment_sourced_by_shop' => ['nullable', 'boolean'],
             'items.*.artworks' => ['nullable', 'array', 'max:5'],
@@ -49,64 +48,53 @@ class StoreOrderRequest extends FormRequest
                 }
 
                 $items = $this->input('items', []);
-                $materialIds = collect($items)
-                    ->pluck('material_id')
-                    ->filter()
-                    ->unique()
-                    ->values();
-                $materials = Material::whereKey($materialIds)->where('is_active', true)->get()->keyBy('id');
-                $catalogItems = CatalogItem::whereKey(collect($items)->pluck('catalog_item_id')->filter()->unique())
+                $catalogItems = CatalogItem::query()
+                    ->whereKey(collect($items)->pluck('catalog_item_id')->unique())
                     ->where('is_active', true)
+                    ->where(function ($query): void {
+                        $query->whereNull('material_id')
+                            ->orWhereHas('material', fn ($materialQuery) => $materialQuery->where('is_active', true));
+                    })
+                    ->with('material')
                     ->get()
                     ->keyBy('id');
 
                 foreach ($items as $index => $item) {
-                    $itemType = $item['item_type'];
-                    $catalogItemId = $item['catalog_item_id'] ?? null;
-                    $catalogItem = $catalogItemId === null ? null : $catalogItems->get((int) $catalogItemId);
-                    $isShopSourcedGarment = $itemType === 'dtf_garment'
-                        && filter_var($item['garment_sourced_by_shop'] ?? false, FILTER_VALIDATE_BOOLEAN);
-                    $requiredCategory = match ($itemType) {
-                        'banner' => 'banner',
-                        'sertine' => 'sertine',
-                        'sticker' => 'sticker',
-                        'dtf_garment' => $isShopSourcedGarment ? 'garment' : null,
-                        'dtf_print' => null,
-                    };
-                    $materialId = $item['material_id'] ?? null;
+                    $catalogItem = $catalogItems->get((int) $item['catalog_item_id']);
 
-                    if ($catalogItemId !== null && (
-                        $catalogItem === null
-                        || $catalogItem->order_item_type !== $itemType
-                        || ($catalogItem->material_id === null
-                            ? $materialId !== null
-                            : (int) $catalogItem->material_id !== (int) $materialId)
-                    )) {
+                    if ($catalogItem === null) {
                         $validator->errors()->add(
                             "items.$index.catalog_item_id",
-                            'Select an active catalog item that matches this order line.',
+                            'Select an active catalog item with an active linked material.',
                         );
-                    } elseif ($requiredCategory === null && $materialId !== null) {
+
+                        continue;
+                    }
+
+                    $isGarment = $catalogItem->category === 'garment';
+                    $isShopSourcedGarment = $isGarment
+                        && filter_var($item['garment_sourced_by_shop'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+                    if ($isShopSourcedGarment && $catalogItem->material_id === null) {
                         $validator->errors()->add(
-                            "items.$index.material_id",
-                            $itemType === 'dtf_garment'
-                                ? 'Customer-supplied garments do not use shop garment stock.'
-                                : 'This order item does not use a material.',
-                        );
-                    } elseif ($requiredCategory !== null && $materialId === null && $catalogItem?->material_id === null) {
-                        $validator->errors()->add(
-                            "items.$index.material_id",
-                            'Select the material used for this item.',
-                        );
-                    } elseif ($requiredCategory !== null && $materialId !== null
-                        && $materials->get((int) $materialId)?->category !== $requiredCategory) {
-                        $validator->errors()->add(
-                            "items.$index.material_id",
-                            'Select a material that matches the item type.',
+                            "items.$index.garment_sourced_by_shop",
+                            'This catalog item has no linked garment stock to source from.',
                         );
                     }
 
-                    $lineTotal = (float) $item['quantity_or_meters'] * (float) $item['unit_price'];
+                    $quantity = (float) $item['quantity_or_meters'];
+
+                    if ($catalogItem->unit === 'piece' && floor($quantity) !== $quantity) {
+                        $validator->errors()->add(
+                            "items.$index.quantity_or_meters",
+                            'Quantity must be a whole number for items sold by piece.',
+                        );
+                    }
+
+                    $unitPrice = isset($item['unit_price']) && $item['unit_price'] !== ''
+                        ? (float) $item['unit_price']
+                        : (float) $catalogItem->default_unit_price;
+                    $lineTotal = (float) $item['quantity_or_meters'] * $unitPrice;
 
                     if (isset($item['discount']) && (float) $item['discount'] > $lineTotal) {
                         $validator->errors()->add(

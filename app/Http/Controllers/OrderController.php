@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreOrderRequest;
 use App\Models\CatalogItem;
 use App\Models\Customer;
-use App\Models\Material;
 use App\Models\Order;
 use App\Services\CompletedOrderSaleService;
 use App\Services\OrderArtworkService;
@@ -51,7 +50,15 @@ class OrderController extends Controller
     {
         return view('orders.create', [
             'customers' => Customer::orderBy('name')->get(),
-            'materials' => Material::where('is_active', true)->orderBy('name')->get(),
+            'catalogItems' => CatalogItem::query()
+                ->where('is_active', true)
+                ->where(function (Builder $query): void {
+                    $query->whereNull('material_id')
+                        ->orWhereHas('material', fn (Builder $materialQuery) => $materialQuery->where('is_active', true));
+                })
+                ->with('material:id,name,is_active')
+                ->orderBy('name')
+                ->get(),
             'selectedCustomerId' => $request->integer('customer_id') ?: null,
         ]);
     }
@@ -79,41 +86,39 @@ class OrderController extends Controller
                     'is_company_job' => (bool) ($validated['is_company_job'] ?? false),
                 ]);
                 $totalAmount = 0;
-                $catalogItems = CatalogItem::whereKey(
-                    collect($validated['items'])->pluck('catalog_item_id')->filter()->unique(),
-                )->get()->keyBy('id');
+                $catalogItems = CatalogItem::query()
+                    ->whereKey(collect($validated['items'])->pluck('catalog_item_id')->unique())
+                    ->where('is_active', true)
+                    ->where(function (Builder $query): void {
+                        $query->whereNull('material_id')
+                            ->orWhereHas('material', fn (Builder $materialQuery) => $materialQuery->where('is_active', true));
+                    })
+                    ->with('material')
+                    ->get()
+                    ->keyBy('id');
 
                 foreach ($validated['items'] as $index => $itemData) {
-                    $catalogItem = isset($itemData['catalog_item_id'])
-                        ? $catalogItems->get((int) $itemData['catalog_item_id'])
+                    $catalogItem = $catalogItems->get((int) $itemData['catalog_item_id']);
+                    $isGarment = $catalogItem->category === 'garment';
+                    $isShopSourcedGarment = $isGarment && (bool) ($itemData['garment_sourced_by_shop'] ?? false);
+                    $material = ! $isGarment || $isShopSourcedGarment
+                        ? $catalogItem->material
                         : null;
-                    $material = null;
-                    $requiresMaterial = $catalogItem !== null
-                        ? $catalogItem->material_id !== null
-                        : ($itemData['item_type'] !== 'dtf_garment'
-                            && $itemData['item_type'] !== 'dtf_print')
-                            || (bool) ($itemData['garment_sourced_by_shop'] ?? false);
-
-                    if ($requiresMaterial) {
-                        $material = Material::whereKey($itemData['material_id'])
-                            ->where('is_active', true)
-                            ->firstOrFail();
-                    }
                     $quantity = (float) $itemData['quantity_or_meters'];
-                    $unitPrice = (float) $itemData['unit_price'];
+                    $unitPrice = (float) ($itemData['unit_price'] ?? $catalogItem->default_unit_price);
                     $discount = (float) ($itemData['discount'] ?? 0);
                     $subtotal = round(($quantity * $unitPrice) - $discount, 2);
                     $orderItem = $order->items()->create([
-                        'item_type' => $itemData['item_type'],
+                        'item_type' => $catalogItem->order_item_type,
                         'material_id' => $material?->id,
-                        'catalog_item_id' => $catalogItem?->id,
-                        'catalog_item_name' => $catalogItem?->name,
-                        'catalog_item_unit' => $catalogItem?->unit,
+                        'catalog_item_id' => $catalogItem->id,
+                        'catalog_item_name' => $catalogItem->name,
+                        'catalog_item_unit' => $catalogItem->unit,
                         'quantity_or_meters' => $quantity,
                         'unit_price' => $unitPrice,
                         'discount' => $itemData['discount'] ?? null,
-                        'garment_sourced_by_shop' => $itemData['item_type'] === 'dtf_garment'
-                            ? (bool) ($itemData['garment_sourced_by_shop'] ?? false)
+                        'garment_sourced_by_shop' => $isGarment
+                            ? $isShopSourcedGarment
                             : null,
                         'subtotal' => $subtotal,
                     ]);
