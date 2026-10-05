@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CatalogItem;
 use App\Models\Customer;
 use App\Models\Material;
 use App\Models\Order;
@@ -21,6 +22,8 @@ class OrderManagementTest extends TestCase
         $this->seed();
         Storage::fake('local');
         $customer = Customer::where('name', 'Sample Company')->firstOrFail();
+        $bannerCatalogItem = CatalogItem::where('name', 'Banner 1M')->firstOrFail();
+        $garmentCatalogItem = CatalogItem::where('name', 'T-shirt Branding (Shop-sourced)')->firstOrFail();
         $banner = Material::where('name', 'Banner 1M')->firstOrFail();
         $shirts = Material::where('name', 'Blank T-Shirt')->firstOrFail();
         $banner->update(['quantity_remaining' => 5]);
@@ -31,16 +34,14 @@ class OrderManagementTest extends TestCase
             'is_company_job' => '1',
             'items' => [
                 [
-                    'item_type' => 'banner',
-                    'material_id' => $banner->id,
+                    'catalog_item_id' => $bannerCatalogItem->id,
                     'quantity_or_meters' => 2,
                     'unit_price' => 15,
                     'discount' => 1,
                     'artworks' => [UploadedFile::fake()->image('banner-proof.png')],
                 ],
                 [
-                    'item_type' => 'dtf_garment',
-                    'material_id' => $shirts->id,
+                    'catalog_item_id' => $garmentCatalogItem->id,
                     'quantity_or_meters' => 3,
                     'unit_price' => 5,
                     'garment_sourced_by_shop' => '1',
@@ -64,6 +65,7 @@ class OrderManagementTest extends TestCase
     public function test_order_can_create_a_walk_in_customer_without_deducting_customer_supplied_garment_stock(): void
     {
         $this->seed();
+        $customerSuppliedGarment = CatalogItem::where('name', 'T-shirt Branding (Customer-supplied)')->firstOrFail();
 
         $response = $this->post(route('orders.store'), [
             'new_customer' => [
@@ -72,7 +74,7 @@ class OrderManagementTest extends TestCase
                 'is_walk_in' => '1',
             ],
             'items' => [[
-                'item_type' => 'dtf_garment',
+                'catalog_item_id' => $customerSuppliedGarment->id,
                 'quantity_or_meters' => 2,
                 'unit_price' => 8,
             ]],
@@ -95,6 +97,7 @@ class OrderManagementTest extends TestCase
     public function test_order_quantities_are_not_limited_by_storage_stock(): void
     {
         $this->seed();
+        $bannerCatalogItem = CatalogItem::where('name', 'Banner 1M')->firstOrFail();
         $banner = Material::where('name', 'Banner 1M')->firstOrFail();
         $banner->update(['quantity_remaining' => 1]);
         $customer = Customer::where('name', 'Sample Company')->firstOrFail();
@@ -102,8 +105,7 @@ class OrderManagementTest extends TestCase
         $response = $this->from(route('orders.create'))->post(route('orders.store'), [
             'customer_id' => $customer->id,
             'items' => [[
-                'item_type' => 'banner',
-                'material_id' => $banner->id,
+                'catalog_item_id' => $bannerCatalogItem->id,
                 'quantity_or_meters' => 2,
                 'unit_price' => 15,
             ]],
@@ -114,6 +116,112 @@ class OrderManagementTest extends TestCase
         $this->assertDatabaseCount('orders', 1);
         $this->assertDatabaseCount('stock_movements', 0);
         $this->assertDatabaseHas('materials', ['id' => $banner->id, 'quantity_remaining' => 1]);
+    }
+
+    public function test_company_order_can_mix_catalog_categories_artworks_and_snapshot_them_on_completion(): void
+    {
+        $this->seed();
+        Storage::fake('local');
+        $customer = Customer::where('name', 'Sample Company')->firstOrFail();
+        $banner = CatalogItem::where('name', 'Banner 1M')->firstOrFail();
+        $mug = CatalogItem::where('name', 'Magic Mug')->firstOrFail();
+        $garment = CatalogItem::where('name', 'T-shirt Branding (Shop-sourced)')->firstOrFail();
+        $blankShirt = Material::where('name', 'Blank T-Shirt')->firstOrFail();
+
+        $this->get(route('orders.create'))
+            ->assertSee('Banner 1M · 400.00 / meter')
+            ->assertSee('Magic Mug · 800.00 / piece')
+            ->assertSee('T-shirt Branding (Shop-sourced) · 800.00 / piece')
+            ->assertDontSee('name="items[__INDEX__][item_type]"', false);
+
+        $this->post(route('orders.store'), [
+            'customer_id' => $customer->id,
+            'is_company_job' => '1',
+            'due_date' => '2026-10-12',
+            'notes' => 'Mixed catalog company order',
+            'items' => [
+                [
+                    'catalog_item_id' => $banner->id,
+                    'quantity_or_meters' => 2,
+                    'discount' => 50,
+                    'artworks' => [UploadedFile::fake()->image('banner.png')],
+                ],
+                [
+                    'catalog_item_id' => $mug->id,
+                    'quantity_or_meters' => 2,
+                    'artworks' => [UploadedFile::fake()->create('mug-design.pdf', 10, 'application/pdf')],
+                ],
+                [
+                    'catalog_item_id' => $garment->id,
+                    'quantity_or_meters' => 3,
+                    'garment_sourced_by_shop' => '1',
+                    'artworks' => [UploadedFile::fake()->image('shirt-proof.png')],
+                ],
+            ],
+        ])->assertRedirect();
+
+        $order = Order::firstOrFail();
+        $this->assertSame('4750.00', $order->total_amount);
+        $this->assertTrue($order->is_company_job);
+        $this->assertSame('2026-10-12', $order->due_date->toDateString());
+        $this->assertDatabaseHas('order_items', [
+            'order_id' => $order->id,
+            'catalog_item_id' => $banner->id,
+            'item_type' => 'banner',
+            'material_id' => $banner->material_id,
+            'catalog_item_unit' => 'meter',
+            'unit_price' => 400,
+            'discount' => 50,
+            'subtotal' => 750,
+        ]);
+        $this->assertDatabaseHas('order_items', [
+            'order_id' => $order->id,
+            'catalog_item_id' => $mug->id,
+            'item_type' => 'mugs',
+            'material_id' => null,
+            'catalog_item_unit' => 'piece',
+            'unit_price' => 800,
+            'subtotal' => 1600,
+        ]);
+        $this->assertDatabaseHas('order_items', [
+            'order_id' => $order->id,
+            'catalog_item_id' => $garment->id,
+            'item_type' => 'dtf_garment',
+            'material_id' => $blankShirt->id,
+            'garment_sourced_by_shop' => true,
+            'catalog_item_unit' => 'piece',
+            'unit_price' => 800,
+            'subtotal' => 2400,
+        ]);
+
+        $orderItems = $order->items()->orderBy('id')->get();
+        $this->assertDatabaseCount('order_artworks', 3);
+        $this->assertDatabaseHas('order_artworks', ['order_item_id' => $orderItems[0]->id, 'purpose' => 'proof']);
+        $this->assertDatabaseHas('order_artworks', ['order_item_id' => $orderItems[1]->id, 'purpose' => 'design']);
+        $this->assertDatabaseHas('order_artworks', ['order_item_id' => $orderItems[2]->id, 'purpose' => 'proof']);
+        $this->get(route('orders.show', $order))
+            ->assertSee('Banner 1M')
+            ->assertSee('Magic Mug')
+            ->assertSee('T-shirt Branding (Shop-sourced)')
+            ->assertSee('Designs &amp; production proofs', false);
+
+        $this->patch(route('orders.update', $order), [
+            'status' => 'completed',
+            'amount_paid' => 0,
+            'payment_method' => 'cash',
+        ])->assertRedirect(route('orders.show', $order));
+
+        $sale = Sale::where('order_id', $order->id)->firstOrFail();
+        $this->assertSame(3, count($sale->items_snapshot));
+        $this->assertSame('banner', $sale->items_snapshot[0]['item_type']);
+        $this->assertSame('banner', $sale->items_snapshot[0]['category']);
+        $this->assertSame($banner->material_id, $sale->items_snapshot[0]['material_id']);
+        $this->assertSame('mugs', $sale->items_snapshot[1]['item_type']);
+        $this->assertSame('Mugs', $sale->items_snapshot[1]['category']);
+        $this->assertNull($sale->items_snapshot[1]['material_id']);
+        $this->assertSame('dtf_garment', $sale->items_snapshot[2]['item_type']);
+        $this->assertSame('garment', $sale->items_snapshot[2]['category']);
+        $this->assertSame($blankShirt->id, $sale->items_snapshot[2]['material_id']);
     }
 
     public function test_order_list_filters_by_status_date_and_customer(): void

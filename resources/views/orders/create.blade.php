@@ -66,18 +66,18 @@
             <button type="button" class="remove-item text-sm font-medium text-red-600 hover:text-red-800">Remove</button>
         </div>
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-                <label class="mb-1 block text-xs font-medium text-slate-600">Item type</label>
-                <select name="items[__INDEX__][item_type]" class="item-type w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm" required>
-                    <option value="banner">Banner</option><option value="sertine">Sertine</option><option value="sticker">Sticker</option><option value="dtf_garment">DTF garment</option>
-                </select>
-            </div>
-            <div class="material-field">
-                <label class="material-label mb-1 block text-xs font-medium text-slate-600">Material</label>
-                <select name="items[__INDEX__][material_id]" class="material-select w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm">
-                    <option value="">Choose stock material</option>
-                    @foreach ($materials as $material)
-                        <option value="{{ $material->id }}" data-category="{{ $material->category }}" data-unit="{{ $material->unit }}">{{ $material->name }} ({{ number_format((float) $material->quantity_remaining, 0) }} {{ $material->unit }})</option>
+            <div class="sm:col-span-2">
+                <label class="mb-1 block text-xs font-medium text-slate-600">Catalog item</label>
+                <select name="items[__INDEX__][catalog_item_id]" class="catalog-item-select w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm" required>
+                    <option value="">Choose service or item</option>
+                    @foreach ($catalogItems as $catalogItem)
+                        <option
+                            value="{{ $catalogItem->id }}"
+                            data-category="{{ $catalogItem->category }}"
+                            data-material-id="{{ $catalogItem->material_id }}"
+                            data-price="{{ $catalogItem->default_unit_price }}"
+                            data-unit="{{ $catalogItem->unit }}"
+                        >{{ $catalogItem->name }} · {{ number_format((float) $catalogItem->default_unit_price, 2) }} / {{ $catalogItem->unit }}</option>
                     @endforeach
                 </select>
             </div>
@@ -85,8 +85,8 @@
                 <input type="checkbox" name="items[__INDEX__][garment_sourced_by_shop]" value="1" class="garment-sourced size-4 rounded border-slate-300 text-blue-600">
                 <span class="text-sm text-slate-700">Blank garment supplied by shop</span>
             </div>
-            <div><label class="quantity-label mb-1 block text-xs font-medium text-slate-600">Meters</label><input name="items[__INDEX__][quantity_or_meters]" type="number" min="0.001" step="0.001" required class="quantity-input w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"></div>
-            <div><label class="mb-1 block text-xs font-medium text-slate-600">Unit price</label><input name="items[__INDEX__][unit_price]" type="number" min="0" step="0.01" required class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"></div>
+            <div><label class="quantity-label mb-1 block text-xs font-medium text-slate-600">Quantity</label><input name="items[__INDEX__][quantity_or_meters]" type="number" min="0.001" step="0.001" required class="quantity-input w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"></div>
+            <div><label class="mb-1 block text-xs font-medium text-slate-600">Unit price</label><input name="items[__INDEX__][unit_price]" type="number" min="0" step="0.01" required class="unit-price-input w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"></div>
             <div><label class="mb-1 block text-xs font-medium text-slate-600">Discount (fixed amount)</label><input name="items[__INDEX__][discount]" type="number" min="0" step="0.01" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"></div>
             <div class="sm:col-span-2 lg:col-span-3"><label class="mb-1 block text-xs font-medium text-slate-600">Artwork (image and/or PDF, up to 5 files)</label><input name="items[__INDEX__][artworks][]" type="file" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.pdf" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-blue-50 file:px-3 file:py-1 file:text-xs file:font-semibold file:text-blue-700"></div>
         </div>
@@ -99,31 +99,25 @@
     const itemTemplate = document.getElementById('order-item-template');
     let itemIndex = 0;
 
-    function refreshMaterialOptions(item) {
-        const type = item.querySelector('.item-type').value;
-        const sourced = item.querySelector('.garment-sourced').checked;
-        const materialField = item.querySelector('.material-field');
-        const materialSelect = item.querySelector('.material-select');
+    function refreshCatalogItem(item) {
+        const select = item.querySelector('.catalog-item-select');
+        const selectedOption = select.selectedOptions[0];
         const quantityLabel = item.querySelector('.quantity-label');
-        const isGarment = type === 'dtf_garment';
-        const needsMaterial = !isGarment || sourced;
-        const categories = { banner: 'banner', sertine: 'sertine', sticker: 'sticker', dtf_garment: 'garment' };
-        const wantedCategory = categories[type];
-        const currentValue = materialSelect.value;
+        const quantity = item.querySelector('.quantity-input');
+        const isPiece = selectedOption.dataset.unit === 'piece';
+        const isGarment = selectedOption.dataset.category === 'garment';
+        const garmentSourced = item.querySelector('.garment-sourced');
+        const hasLinkedMaterial = selectedOption.dataset.materialId !== '';
+
+        item.querySelector('.unit-price-input').value = selectedOption.dataset.price || '';
+        quantity.step = isPiece ? '1' : '0.001';
+        quantity.min = isPiece ? '1' : '0.001';
+        quantity.placeholder = isPiece ? 'Pieces' : 'Meters';
+        quantityLabel.textContent = isPiece ? 'Quantity (pieces)' : 'Quantity (meters)';
 
         item.querySelector('.garment-sourced-field').classList.toggle('hidden', !isGarment);
-        materialField.classList.toggle('hidden', !needsMaterial);
-        materialSelect.required = needsMaterial;
-        quantityLabel.textContent = isGarment ? 'Garment quantity (pieces)' : 'Length (meters)';
-        materialSelect.querySelectorAll('option[data-category]').forEach((option) => {
-            option.hidden = option.dataset.category !== wantedCategory;
-        });
-
-        if (!needsMaterial || !materialSelect.selectedOptions[0]?.matches(`[data-category="${wantedCategory}"]`)) {
-            materialSelect.value = '';
-        } else {
-            materialSelect.value = currentValue;
-        }
+        garmentSourced.checked = isGarment && hasLinkedMaterial;
+        garmentSourced.disabled = !isGarment || !hasLinkedMaterial;
     }
 
     function addItem() {
@@ -133,14 +127,12 @@
         });
         const item = fragment.querySelector('.order-item');
         item.querySelector('.item-heading').textContent = `Line item ${itemIndex + 1}`;
-        item.querySelector('.item-type').addEventListener('change', () => refreshMaterialOptions(item));
-        item.querySelector('.garment-sourced').addEventListener('change', () => refreshMaterialOptions(item));
+        item.querySelector('.catalog-item-select').addEventListener('change', () => refreshCatalogItem(item));
         item.querySelector('.remove-item').addEventListener('click', () => {
             item.remove();
             renumberItems();
         });
         itemsContainer.append(fragment);
-        refreshMaterialOptions(itemsContainer.lastElementChild);
         itemIndex++;
     }
 
