@@ -145,6 +145,13 @@ class QuickSaleTest extends TestCase
             'purpose' => 'proof',
             'file_type' => 'image',
         ]);
+        $artwork = $order->items()->firstOrFail()->artworks()->firstOrFail();
+        Storage::disk('local')->assertExists($artwork->file_path);
+        $this->get(route('orders.show', $order))
+            ->assertOk()
+            ->assertSee('Designs &amp; production proofs', false)
+            ->assertSee('DTF NoCut Printing')
+            ->assertSee(route('artworks.download', $artwork), false);
         $this->assertDatabaseCount('sales', 1);
         $this->assertDatabaseCount('stock_movements', 0);
     }
@@ -254,6 +261,7 @@ class QuickSaleTest extends TestCase
         $this->assertDatabaseHas('catalog_items', [
             'name' => 'A4 Duplicate 1 Color',
             'category' => 'Receipt Books',
+            'order_item_type' => 'receipt_books',
             'unit' => 'piece',
             'default_unit_price' => 600,
             'material_id' => null,
@@ -268,6 +276,7 @@ class QuickSaleTest extends TestCase
         $this->assertDatabaseHas('catalog_items', [
             'name' => 'Sublimation Printing',
             'category' => 'Sub Printing',
+            'order_item_type' => 'sub_printing',
             'unit' => 'piece',
             'default_unit_price' => 50,
             'material_id' => null,
@@ -290,9 +299,150 @@ class QuickSaleTest extends TestCase
                     'Other',
                     'Sub Printing',
                 ])
+                ->where('order_item_type', 'dtf_print')
+                ->count(),
+        );
+
+        $this->assertSame(
+            0,
+            CatalogItem::query()
+                ->whereIn('category', [
+                    'Receipt Books',
+                    'Paper Printing',
+                    'Caps',
+                    'Design',
+                    'Stamps & Seals',
+                    'Reflectors',
+                    'Mugs',
+                    'Bottles',
+                    'T-Shirts',
+                    'Pens',
+                    'Other',
+                    'Sub Printing',
+                ])
                 ->whereNotNull('material_id')
                 ->count(),
         );
+    }
+
+    public function test_category_correction_updates_catalog_order_items_and_historical_sale_snapshots(): void
+    {
+        $catalogItem = CatalogItem::create([
+            'name' => 'Magic Mug',
+            'category' => 'Mugs',
+            'order_item_type' => 'dtf_print',
+            'unit' => 'piece',
+            'default_unit_price' => 800,
+            'is_active' => true,
+        ]);
+        $customer = Customer::create(['name' => 'Existing Mug Customer']);
+        $order = Order::create(['customer_id' => $customer->id]);
+        $orderItem = $order->items()->create([
+            'item_type' => 'dtf_print',
+            'catalog_item_id' => $catalogItem->id,
+            'catalog_item_name' => $catalogItem->name,
+            'catalog_item_unit' => $catalogItem->unit,
+            'quantity_or_meters' => 1,
+            'unit_price' => 800,
+            'subtotal' => 800,
+        ]);
+        $sale = Sale::create([
+            'order_id' => $order->id,
+            'customer_id' => $customer->id,
+            'total_amount' => 800,
+            'amount_paid' => 800,
+            'payment_method' => 'cash',
+            'completed_at' => now(),
+            'items_snapshot' => [[
+                'item_type' => 'dtf_print',
+                'catalog_item_id' => $catalogItem->id,
+                'catalog_item_name' => $catalogItem->name,
+                'quantity' => 1,
+            ]],
+        ]);
+
+        $migration = require database_path('migrations/2026_10_05_073120_correct_catalog_item_categories.php');
+        $migration->up();
+
+        $this->assertDatabaseHas('catalog_items', [
+            'id' => $catalogItem->id,
+            'order_item_type' => 'mugs',
+        ]);
+        $this->assertDatabaseHas('order_items', [
+            'id' => $orderItem->id,
+            'item_type' => 'mugs',
+        ]);
+        $this->assertSame('mugs', $sale->fresh()->items_snapshot[0]['item_type']);
+        $this->assertSame('Mugs', $sale->fresh()->items_snapshot[0]['category']);
+        $this->get(route('sales.index', ['item_type' => 'mugs']))
+            ->assertOk()
+            ->assertSee('Existing Mug Customer')
+            ->assertSee('Magic Mug');
+
+        $migration->down();
+
+        $this->assertDatabaseHas('catalog_items', [
+            'id' => $catalogItem->id,
+            'order_item_type' => 'dtf_print',
+        ]);
+        $this->assertSame('dtf_print', $sale->fresh()->items_snapshot[0]['item_type']);
+        $this->assertArrayNotHasKey('category', $sale->fresh()->items_snapshot[0]);
+    }
+
+    public function test_expanded_catalog_category_is_saved_to_quick_sale_snapshot_and_can_filter_sales(): void
+    {
+        $catalogItem = CatalogItem::create([
+            'name' => 'Magic Mug',
+            'category' => 'Mugs',
+            'order_item_type' => 'mugs',
+            'unit' => 'piece',
+            'default_unit_price' => 800,
+            'is_active' => true,
+        ]);
+        $customer = Customer::create(['name' => 'Mug Customer']);
+
+        $this->post(route('quick-sales.store'), [
+            'customer_id' => $customer->id,
+            'items' => [[
+                'catalog_item_id' => $catalogItem->id,
+                'quantity' => 2,
+                'unit_price' => 800,
+            ]],
+            'amount_paid' => 1600,
+            'payment_method' => 'cash',
+        ])->assertRedirect();
+
+        $sale = Sale::firstOrFail();
+        $this->assertSame('mugs', $sale->items_snapshot[0]['item_type']);
+        $this->assertSame('Mugs', $sale->items_snapshot[0]['category']);
+
+        $this->get(route('sales.index', ['item_type' => 'mugs']))
+            ->assertOk()
+            ->assertSee('Mugs')
+            ->assertSee('Mug Customer')
+            ->assertSee('Magic Mug')
+            ->assertSee('value="mugs" selected', false);
+    }
+
+    public function test_catalog_form_and_list_accept_and_show_an_expanded_category(): void
+    {
+        $this->get(route('catalog.create'))
+            ->assertOk()
+            ->assertSee('value="mugs"', false)
+            ->assertSee('Mugs');
+
+        $this->post(route('catalog.store'), [
+            'name' => 'Magic Mug',
+            'category' => 'Mugs',
+            'order_item_type' => 'mugs',
+            'unit' => 'piece',
+            'default_unit_price' => 800,
+        ])->assertRedirect(route('catalog.index'));
+
+        $this->get(route('catalog.index'))
+            ->assertOk()
+            ->assertSee('Magic Mug')
+            ->assertSee('Mugs');
     }
 
     public function test_quick_sale_picker_distinguishes_piece_sticker_prints_from_meter_roll_printing(): void

@@ -6,6 +6,7 @@ use App\Models\CatalogItem;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Services\CompletedOrderSaleService;
+use App\Services\OrderArtworkService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,7 +14,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
-use RuntimeException;
 use Throwable;
 
 class QuickSaleController extends Controller
@@ -36,8 +36,11 @@ class QuickSaleController extends Controller
         ]);
     }
 
-    public function store(Request $request, CompletedOrderSaleService $completedOrderSaleService): RedirectResponse
-    {
+    public function store(
+        Request $request,
+        CompletedOrderSaleService $completedOrderSaleService,
+        OrderArtworkService $orderArtworkService,
+    ): RedirectResponse {
         $validated = $request->validate([
             'customer_id' => ['nullable', 'required_without:new_customer.name', 'integer', 'exists:customers,id'],
             'new_customer.name' => ['nullable', 'required_without:customer_id', 'string', 'max:255'],
@@ -123,6 +126,7 @@ class QuickSaleController extends Controller
                 $totalAmount,
                 &$storedPaths,
                 $completedOrderSaleService,
+                $orderArtworkService,
             ): Order {
                 $customer = isset($validated['customer_id'])
                     ? Customer::findOrFail($validated['customer_id'])
@@ -161,20 +165,13 @@ class QuickSaleController extends Controller
                         'subtotal' => $lineItem['subtotal'],
                     ]);
 
-                    foreach ($request->file("items.$index.artworks", []) as $file) {
-                        $path = $file->store('artworks', 'local');
-
-                        if ($path === false) {
-                            throw new RuntimeException('Unable to store the uploaded artwork.');
-                        }
-
-                        $storedPaths[] = $path;
-                        $orderItem->artworks()->create([
-                            'purpose' => $file->getMimeType() === 'application/pdf' ? 'design' : 'proof',
-                            'file_path' => $path,
-                            'file_type' => $file->getMimeType() === 'application/pdf' ? 'pdf' : 'image',
-                        ]);
-                    }
+                    $storedPaths = [
+                        ...$storedPaths,
+                        ...$orderArtworkService->attachToOrderItem(
+                            $orderItem,
+                            $request->file("items.$index.artworks", []),
+                        ),
+                    ];
                 }
 
                 $completedOrderSaleService->createSale($order);

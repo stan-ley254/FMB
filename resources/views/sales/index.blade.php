@@ -22,8 +22,8 @@
             <label for="item_type" class="mb-1 block text-xs font-medium text-slate-600">Item type</label>
             <select id="item_type" name="item_type" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
                 <option value="">All types</option>
-                @foreach (['banner', 'sertine', 'sticker', 'dtf_print', 'dtf_garment'] as $itemType)
-                    <option value="{{ $itemType }}" @selected(($filters['item_type'] ?? '') === $itemType)>{{ $itemType === 'dtf_garment' ? 'DTF Garment' : str($itemType)->title() }}</option>
+                @foreach ($itemTypes as $itemType => $label)
+                    <option value="{{ $itemType }}" @selected(($filters['item_type'] ?? '') === $itemType)>{{ $label }}</option>
                 @endforeach
             </select>
         </div>
@@ -45,11 +45,7 @@
                 @foreach ($usageSummary as $usageItem)
                     <article class="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
                         <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
-                            {{ match ($usageItem['item_type']) {
-                                'dtf_garment' => 'DTF Garment',
-                                'dtf_print' => 'DTF Print',
-                                default => str($usageItem['item_type'])->replace('_', ' ')->title(),
-                            } }}
+                            {{ $itemTypes[$usageItem['item_type']] ?? str($usageItem['item_type'])->replace('_', ' ')->title() }}
                         </p>
                         <p class="mt-1 font-medium text-slate-800">{{ $usageItem['name'] }}</p>
                         <p class="mt-1 text-sm text-slate-600">

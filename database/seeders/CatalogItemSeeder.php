@@ -10,6 +10,10 @@ class CatalogItemSeeder extends Seeder
 {
     public function run(): void
     {
+        $categoryItemTypes = array_flip(array_filter(
+            CatalogItem::EXPECTED_CATEGORIES,
+            fn (?string $category): bool => $category !== null,
+        ));
         $items = [
             ['name' => 'Banner 1M', 'category' => 'banner', 'order_item_type' => 'banner', 'unit' => 'meter', 'default_unit_price' => 400, 'material' => 'Banner 1M'],
             ['name' => 'Banner 1.2M', 'category' => 'banner', 'order_item_type' => 'banner', 'unit' => 'meter', 'default_unit_price' => 400, 'material' => 'Banner 1.2M'],
@@ -85,7 +89,7 @@ class CatalogItemSeeder extends Seeder
                 ['name' => $item['name']],
                 [
                     'category' => $item['category'],
-                    'order_item_type' => $item['order_item_type'],
+                    'order_item_type' => $categoryItemTypes[$item['category']] ?? $item['order_item_type'],
                     'unit' => $item['unit'],
                     'default_unit_price' => $item['default_unit_price'],
                     'material_id' => $material,

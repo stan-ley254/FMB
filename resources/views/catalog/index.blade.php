@@ -17,13 +17,13 @@
         <div class="overflow-x-auto">
             <table class="w-full min-w-[900px] text-left text-sm">
                 <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                    <tr><th class="px-5 py-3">Item</th><th class="px-5 py-3">Type</th><th class="px-5 py-3">Unit</th><th class="px-5 py-3">Default price</th><th class="px-5 py-3">Material</th><th class="px-5 py-3">Status</th><th class="px-5 py-3">Manage</th></tr>
+                    <tr><th class="px-5 py-3">Item</th><th class="px-5 py-3">Category</th><th class="px-5 py-3">Unit</th><th class="px-5 py-3">Default price</th><th class="px-5 py-3">Material</th><th class="px-5 py-3">Status</th><th class="px-5 py-3">Manage</th></tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                     @forelse ($catalogItems as $catalogItem)
                         <tr class="{{ $catalogItem->is_active ? '' : 'bg-slate-50 text-slate-500' }}">
                             <td class="px-5 py-4 font-medium text-slate-800">{{ $catalogItem->name }}</td>
-                            <td class="px-5 py-4">{{ str($catalogItem->order_item_type)->replace('_', ' ')->title() }}</td>
+                            <td class="px-5 py-4">{{ $catalogItem->category ?? $itemTypes[$catalogItem->order_item_type] ?? str($catalogItem->order_item_type)->replace('_', ' ')->title() }}</td>
                             <td class="px-5 py-4">{{ str($catalogItem->unit)->title() }}</td>
                             <td class="px-5 py-4">{{ number_format((float) $catalogItem->default_unit_price, 2) }}</td>
                             <td class="px-5 py-4">{{ $catalogItem->material?->name ?? '—' }}</td>

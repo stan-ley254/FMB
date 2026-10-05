@@ -13,14 +13,11 @@ use Illuminate\View\View;
 
 class CatalogController extends Controller
 {
-    private const CATEGORIES = ['banner', 'sertine', 'sticker', 'dtf-consumable', 'garment'];
-
-    private const ITEM_TYPES = ['banner', 'sertine', 'sticker', 'dtf_garment', 'dtf_print'];
-
     public function index(): View
     {
         return view('catalog.index', [
             'catalogItems' => CatalogItem::query()->with('material')->orderBy('name')->paginate(25),
+            'itemTypes' => CatalogItem::ITEM_TYPES,
         ]);
     }
 
@@ -65,8 +62,8 @@ class CatalogController extends Controller
                 'max:255',
                 Rule::unique('catalog_items', 'name')->ignore($catalogItem?->id),
             ],
-            'category' => ['nullable', Rule::in(self::CATEGORIES)],
-            'order_item_type' => ['required', Rule::in(self::ITEM_TYPES)],
+            'category' => ['nullable', Rule::in(array_keys(CatalogItem::CATEGORIES))],
+            'order_item_type' => ['required', Rule::in(array_keys(CatalogItem::ITEM_TYPES))],
             'unit' => ['required', Rule::in(['meter', 'piece'])],
             'default_unit_price' => ['required', 'numeric', 'min:0', 'max:9999999999.99'],
             'material_id' => [
@@ -77,17 +74,11 @@ class CatalogController extends Controller
             'is_active' => $catalogItem ? ['sometimes', 'boolean'] : ['prohibited'],
         ]);
 
-        $expectedCategory = match ($validated['order_item_type']) {
-            'banner' => 'banner',
-            'sertine' => 'sertine',
-            'sticker' => 'sticker',
-            'dtf_garment' => 'garment',
-            'dtf_print' => null,
-        };
+        $expectedCategory = CatalogItem::EXPECTED_CATEGORIES[$validated['order_item_type']];
 
         if (($validated['category'] ?? null) !== $expectedCategory) {
             throw ValidationException::withMessages([
-                'category' => 'The material category must match the selected order item type.',
+                'category' => 'The category must match the selected order item type.',
             ]);
         }
 
@@ -105,19 +96,13 @@ class CatalogController extends Controller
     }
 
     /**
-     * @return array{categories: array<int, string>, itemTypes: array<string, string>, units: array<string, string>, materials: Collection<int, Material>}
+     * @return array{categories: array<string, string>, itemTypes: array<string, string>, units: array<string, string>, materials: Collection<int, Material>}
      */
     private function formData(): array
     {
         return [
-            'categories' => self::CATEGORIES,
-            'itemTypes' => [
-                'banner' => 'Banner',
-                'sertine' => 'Sertine',
-                'sticker' => 'Sticker',
-                'dtf_garment' => 'DTF garment',
-                'dtf_print' => 'DTF print',
-            ],
+            'categories' => CatalogItem::CATEGORIES,
+            'itemTypes' => CatalogItem::ITEM_TYPES,
             'units' => ['meter' => 'Meter', 'piece' => 'Piece'],
             'materials' => Material::where('is_active', true)->orderBy('name')->get(),
         ];

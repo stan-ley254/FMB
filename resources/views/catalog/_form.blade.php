@@ -17,11 +17,11 @@
             </select>
         </div>
         <div>
-            <label for="category" class="mb-1 block text-sm font-medium text-slate-700">Material category</label>
+            <label for="category" class="mb-1 block text-sm font-medium text-slate-700">Category</label>
             <select id="category" name="category" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
                 <option value="">Not applicable</option>
-                @foreach ($categories as $category)
-                    <option value="{{ $category }}" @selected(old('category', $catalogItem?->category) === $category)>{{ str($category)->replace('-', ' ')->title() }}</option>
+                @foreach ($categories as $category => $label)
+                    <option value="{{ $category }}" @selected(old('category', $catalogItem?->category) === $category)>{{ $label }}</option>
                 @endforeach
             </select>
         </div>

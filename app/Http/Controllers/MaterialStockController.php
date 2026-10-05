@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\InkStock;
 use App\Models\Material;
 use App\Services\StockPurchaseService;
+use App\Services\StockQuantityCorrectionService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -108,25 +109,38 @@ class MaterialStockController extends Controller
         ]);
     }
 
-    public function updateMaterial(Request $request, Material $material): RedirectResponse
-    {
+    public function updateMaterial(
+        Request $request,
+        Material $material,
+        StockQuantityCorrectionService $stockQuantityCorrectionService,
+    ): RedirectResponse {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', Rule::unique('materials', 'name')->ignore($material->id)],
             'category' => ['required', Rule::in(array_keys(self::MATERIAL_CATEGORIES))],
             'unit' => ['required', Rule::in(self::MATERIAL_UNITS)],
             'machine' => ['nullable', Rule::in(array_keys(self::MACHINES))],
             'is_active' => ['required', 'boolean'],
-            'quantity_remaining' => ['prohibited'],
+            'quantity_remaining' => ['sometimes', 'required', 'integer', 'min:0', 'max:999999'],
             'starting_quantity' => ['prohibited'],
         ]);
 
-        $material->update([
-            'name' => $validated['name'],
-            'category' => $validated['category'],
-            'unit' => $validated['unit'],
-            'machine' => $validated['machine'] ?? null,
-            'is_active' => $validated['is_active'],
-        ]);
+        DB::transaction(function () use ($material, $validated, $stockQuantityCorrectionService): void {
+            $lockedMaterial = Material::whereKey($material->id)->lockForUpdate()->firstOrFail();
+            $lockedMaterial->update([
+                'name' => $validated['name'],
+                'category' => $validated['category'],
+                'unit' => $validated['unit'],
+                'machine' => $validated['machine'] ?? null,
+                'is_active' => $validated['is_active'],
+            ]);
+
+            if (array_key_exists('quantity_remaining', $validated)) {
+                $stockQuantityCorrectionService->correctMaterialQuantity(
+                    $lockedMaterial,
+                    (int) $validated['quantity_remaining'],
+                );
+            }
+        });
 
         return redirect()->route('stock.index')->with('success', "{$material->name} updated.");
     }
@@ -196,18 +210,31 @@ class MaterialStockController extends Controller
         ]);
     }
 
-    public function updateInk(Request $request, InkStock $inkStock): RedirectResponse
-    {
+    public function updateInk(
+        Request $request,
+        InkStock $inkStock,
+        StockQuantityCorrectionService $stockQuantityCorrectionService,
+    ): RedirectResponse {
         $validated = $request->validate([
             'is_active' => ['required', 'boolean'],
             'machine' => ['prohibited'],
             'color' => ['prohibited'],
             'unit' => ['prohibited'],
-            'quantity_remaining' => ['prohibited'],
+            'quantity_remaining' => ['sometimes', 'required', 'integer', 'min:0', 'max:999999'],
             'starting_quantity' => ['prohibited'],
         ]);
 
-        $inkStock->update(['is_active' => $validated['is_active']]);
+        DB::transaction(function () use ($inkStock, $validated, $stockQuantityCorrectionService): void {
+            $lockedInkStock = InkStock::whereKey($inkStock->id)->lockForUpdate()->firstOrFail();
+            $lockedInkStock->update(['is_active' => $validated['is_active']]);
+
+            if (array_key_exists('quantity_remaining', $validated)) {
+                $stockQuantityCorrectionService->correctInkQuantity(
+                    $lockedInkStock,
+                    (int) $validated['quantity_remaining'],
+                );
+            }
+        });
 
         return redirect()->route('stock.index')->with('success', 'Ink stock updated.');
     }

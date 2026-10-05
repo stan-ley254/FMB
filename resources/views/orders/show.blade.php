@@ -27,17 +27,32 @@
                                 </div>
                                 <p class="font-semibold text-slate-800">{{ number_format((float) $item->subtotal, 2) }}</p>
                             </div>
-                            @if ($item->artworks->isNotEmpty())
-                                <div class="mt-4 flex flex-wrap gap-2">
-                                    @foreach ($item->artworks as $artwork)
-                                        <a href="{{ route('artworks.download', $artwork) }}" class="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-50">{{ str($artwork->purpose)->title() }} · {{ strtoupper($artwork->file_type) }}</a>
-                                    @endforeach
-                                </div>
-                            @endif
                         </article>
                     @endforeach
                 </div>
                 <div class="flex justify-between border-t border-slate-100 bg-slate-50 px-5 py-4 font-semibold"><span>Total</span><span>{{ number_format((float) $order->total_amount, 2) }}</span></div>
+            </section>
+
+            <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <header class="border-b border-slate-100 px-5 py-4"><h2 class="font-semibold text-slate-800">Designs &amp; production proofs</h2></header>
+                <div class="divide-y divide-slate-100">
+                    @php($artworkCount = 0)
+                    @foreach ($order->items as $item)
+                        @foreach ($item->artworks as $artwork)
+                            @php($artworkCount++)
+                            <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+                                <div>
+                                    <p class="font-medium text-slate-800">{{ $item->catalog_item_name ?? $item->material?->name ?? str($item->item_type)->replace('_', ' ')->title() }} · {{ str($artwork->purpose)->title() }}</p>
+                                    <p class="mt-1 text-xs text-slate-500">{{ $artwork->uploaded_at->format('M j, Y') }}</p>
+                                </div>
+                                <a href="{{ route('artworks.download', $artwork) }}" class="font-medium text-blue-700 hover:text-blue-900">Download {{ strtoupper($artwork->file_type) }}</a>
+                            </div>
+                        @endforeach
+                    @endforeach
+                    @if ($artworkCount === 0)
+                        <p class="px-5 py-8 text-sm text-slate-500">No designs or proofs have been uploaded yet.</p>
+                    @endif
+                </div>
             </section>
 
             @if ($order->notes)

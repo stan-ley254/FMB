@@ -23,15 +23,13 @@
         <div class="mb-6 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">{{ $customer->notes }}</div>
     @endif
 
-    <div class="mb-7 grid gap-4 sm:grid-cols-2">
-        <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p class="text-sm text-slate-500">Banner ordered</p>
-            <p class="mt-2 text-2xl font-bold text-slate-900">{{ number_format((float) $bannerMeters, 3) }} <span class="text-base font-medium text-slate-500">meters</span></p>
-        </article>
-        <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p class="text-sm text-slate-500">DTF garments ordered</p>
-            <p class="mt-2 text-2xl font-bold text-slate-900">{{ number_format((float) $dtfGarments, 0) }} <span class="text-base font-medium text-slate-500">pieces</span></p>
-        </article>
+    <div class="mb-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        @foreach ($itemTotals as $itemTotal)
+            <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p class="text-sm text-slate-500">{{ $itemTotal['label'] }} ordered</p>
+                <p class="mt-2 text-2xl font-bold text-slate-900">{{ number_format($itemTotal['quantity'], $itemTotal['unit'] === 'piece' ? 0 : 3) }} <span class="text-base font-medium text-slate-500">{{ $itemTotal['unit'] === 'piece' ? 'pieces' : 'meters' }}</span></p>
+            </article>
+        @endforeach
     </div>
 
     <section class="mb-7 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
