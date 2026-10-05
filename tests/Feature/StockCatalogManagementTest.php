@@ -75,7 +75,7 @@ class StockCatalogManagementTest extends TestCase
             ->assertDontSee('Renamed Banner');
     }
 
-    public function test_material_quantity_cannot_be_changed_by_editing_its_definition(): void
+    public function test_material_quantity_correction_records_the_signed_difference_in_stock_history(): void
     {
         $material = $this->createMaterial('Banner Roll', 7);
 
@@ -86,12 +86,38 @@ class StockCatalogManagementTest extends TestCase
             'machine' => 'large_format',
             'is_active' => '1',
             'quantity_remaining' => 99,
-        ])->assertSessionHasErrors('quantity_remaining');
+        ])->assertRedirect(route('stock.index'));
+
+        $this->assertDatabaseHas('materials', [
+            'id' => $material->id,
+            'quantity_remaining' => 99,
+        ]);
+        $this->assertDatabaseHas('stock_movements', [
+            'material_id' => $material->id,
+            'type' => 'purchase',
+            'quantity' => 92,
+            'notes' => 'Manual correction via edit form.',
+        ]);
+    }
+
+    public function test_saving_an_unchanged_material_quantity_does_not_create_a_zero_movement(): void
+    {
+        $material = $this->createMaterial('Unchanged Banner', 7);
+
+        $this->patch(route('stock.materials.update', $material), [
+            'name' => 'Unchanged Banner',
+            'category' => 'banner',
+            'unit' => 'rolls',
+            'machine' => 'large_format',
+            'is_active' => '1',
+            'quantity_remaining' => 7,
+        ])->assertRedirect(route('stock.index'));
 
         $this->assertDatabaseHas('materials', [
             'id' => $material->id,
             'quantity_remaining' => 7,
         ]);
+        $this->assertDatabaseCount('stock_movements', 0);
     }
 
     public function test_material_with_an_order_item_reference_is_deactivated_instead_of_deleted(): void
@@ -236,7 +262,7 @@ class StockCatalogManagementTest extends TestCase
         $this->assertDatabaseMissing('ink_stocks', ['id' => $inkStock->id]);
     }
 
-    public function test_ink_identity_and_quantity_cannot_be_changed_on_edit(): void
+    public function test_ink_identity_cannot_be_changed_on_edit(): void
     {
         $inkStock = InkStock::create([
             'machine' => 'dtf',
@@ -249,8 +275,7 @@ class StockCatalogManagementTest extends TestCase
             'is_active' => '0',
             'machine' => 'large_format',
             'color' => 'magenta',
-            'quantity_remaining' => 10,
-        ])->assertSessionHasErrors(['machine', 'color', 'quantity_remaining']);
+        ])->assertSessionHasErrors(['machine', 'color']);
 
         $this->assertDatabaseHas('ink_stocks', [
             'id' => $inkStock->id,
@@ -258,6 +283,32 @@ class StockCatalogManagementTest extends TestCase
             'color' => 'cyan',
             'quantity_remaining' => 5,
             'is_active' => true,
+        ]);
+    }
+
+    public function test_ink_quantity_correction_records_a_negative_difference(): void
+    {
+        $inkStock = InkStock::create([
+            'machine' => 'dtf',
+            'color' => 'cyan',
+            'unit' => 'bottles',
+            'quantity_remaining' => 5,
+        ]);
+
+        $this->patch(route('stock.inks.update', $inkStock), [
+            'is_active' => '1',
+            'quantity_remaining' => 3,
+        ])->assertRedirect(route('stock.index'));
+
+        $this->assertDatabaseHas('ink_stocks', [
+            'id' => $inkStock->id,
+            'quantity_remaining' => 3,
+        ]);
+        $this->assertDatabaseHas('stock_movements', [
+            'ink_stock_id' => $inkStock->id,
+            'type' => 'purchase',
+            'quantity' => -2,
+            'notes' => 'Manual correction via edit form.',
         ]);
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CatalogItem;
 use App\Models\Sale;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -13,6 +14,22 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SaleController extends Controller
 {
+    private const PIECE_ITEM_TYPES = [
+        'dtf_garment',
+        'receipt_books',
+        'paper_printing',
+        'caps',
+        'design',
+        'stamps_seals',
+        'reflectors',
+        'mugs',
+        'bottles',
+        't_shirts',
+        'pens',
+        'other',
+        'sub_printing',
+    ];
+
     public function index(Request $request): View
     {
         $filters = $this->validatedFilters($request);
@@ -21,8 +38,9 @@ class SaleController extends Controller
         $sales = $salesQuery
             ->paginate(20)
             ->withQueryString();
+        $itemTypes = CatalogItem::ITEM_TYPES;
 
-        return view('sales.index', compact('sales', 'filters', 'usageSummary'));
+        return view('sales.index', compact('sales', 'filters', 'itemTypes', 'usageSummary'));
     }
 
     public function export(Request $request): StreamedResponse
@@ -77,7 +95,7 @@ class SaleController extends Controller
             'to' => ['nullable', 'date', 'after_or_equal:from'],
             'customer' => ['nullable', 'string', 'max:255'],
             'material' => ['nullable', 'string', 'max:255'],
-            'item_type' => ['nullable', Rule::in(['banner', 'sertine', 'sticker', 'dtf_garment', 'dtf_print'])],
+            'item_type' => ['nullable', Rule::in(array_keys(CatalogItem::ITEM_TYPES))],
         ]);
     }
 
@@ -177,7 +195,7 @@ class SaleController extends Controller
                 $name = $materialName !== ''
                     ? $materialName
                     : ($catalogItemName !== '' ? $catalogItemName : $itemType);
-                $unit = $item['unit'] ?? ($itemType === 'dtf_garment' ? 'piece' : 'meter');
+                $unit = $item['unit'] ?? (in_array($itemType, self::PIECE_ITEM_TYPES, true) ? 'piece' : 'meter');
                 $key = implode('|', [$itemType, $name, $unit]);
 
                 if (! isset($usage[$key])) {

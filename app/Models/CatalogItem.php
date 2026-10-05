@@ -13,6 +13,66 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class CatalogItem extends Model
 {
+    public const CATEGORIES = [
+        'banner' => 'Banner',
+        'sertine' => 'Sertine',
+        'sticker' => 'Sticker',
+        'dtf-consumable' => 'DTF consumables',
+        'garment' => 'Garment',
+        'Receipt Books' => 'Receipt Books',
+        'Paper Printing' => 'Paper Printing',
+        'Caps' => 'Caps',
+        'Design' => 'Design',
+        'Stamps & Seals' => 'Stamps & Seals',
+        'Reflectors' => 'Reflectors',
+        'Mugs' => 'Mugs',
+        'Bottles' => 'Bottles',
+        'T-Shirts' => 'T-Shirts',
+        'Pens' => 'Pens',
+        'Other' => 'Other',
+        'Sub Printing' => 'Sub Printing',
+    ];
+
+    public const ITEM_TYPES = [
+        'banner' => 'Banner',
+        'sertine' => 'Sertine',
+        'sticker' => 'Sticker',
+        'dtf_garment' => 'DTF Garment',
+        'dtf_print' => 'DTF Print',
+        'receipt_books' => 'Receipt Books',
+        'paper_printing' => 'Paper Printing',
+        'caps' => 'Caps',
+        'design' => 'Design',
+        'stamps_seals' => 'Stamps & Seals',
+        'reflectors' => 'Reflectors',
+        'mugs' => 'Mugs',
+        'bottles' => 'Bottles',
+        't_shirts' => 'T-Shirts',
+        'pens' => 'Pens',
+        'other' => 'Other',
+        'sub_printing' => 'Sub Printing',
+    ];
+
+    public const EXPECTED_CATEGORIES = [
+        'banner' => 'banner',
+        'sertine' => 'sertine',
+        'sticker' => 'sticker',
+        'dtf_garment' => 'garment',
+        'dtf_print' => null,
+        'receipt_books' => 'Receipt Books',
+        'paper_printing' => 'Paper Printing',
+        'caps' => 'Caps',
+        'design' => 'Design',
+        'stamps_seals' => 'Stamps & Seals',
+        'reflectors' => 'Reflectors',
+        'mugs' => 'Mugs',
+        'bottles' => 'Bottles',
+        't_shirts' => 'T-Shirts',
+        'pens' => 'Pens',
+        'other' => 'Other',
+        'sub_printing' => 'Sub Printing',
+    ];
+
     protected function casts(): array
     {
         return [

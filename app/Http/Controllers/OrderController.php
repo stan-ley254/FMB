@@ -7,8 +7,8 @@ use App\Models\CatalogItem;
 use App\Models\Customer;
 use App\Models\Material;
 use App\Models\Order;
-use App\Models\OrderArtwork;
 use App\Services\CompletedOrderSaleService;
+use App\Services\OrderArtworkService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,7 +16,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
-use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
@@ -57,13 +56,13 @@ class OrderController extends Controller
         ]);
     }
 
-    public function store(StoreOrderRequest $request): RedirectResponse
+    public function store(StoreOrderRequest $request, OrderArtworkService $orderArtworkService): RedirectResponse
     {
         $validated = $request->validated();
         $storedPaths = [];
 
         try {
-            $order = DB::transaction(function () use ($request, $validated, &$storedPaths): Order {
+            $order = DB::transaction(function () use ($request, $validated, &$storedPaths, $orderArtworkService): Order {
                 $customer = isset($validated['customer_id'])
                     ? Customer::findOrFail($validated['customer_id'])
                     : Customer::create([
@@ -120,20 +119,13 @@ class OrderController extends Controller
                     ]);
                     $totalAmount += $subtotal;
 
-                    foreach ($request->file("items.$index.artworks", []) as $file) {
-                        $path = $file->store('artworks', 'local');
-
-                        if ($path === false) {
-                            throw new RuntimeException('Unable to store the uploaded artwork.');
-                        }
-
-                        $storedPaths[] = $path;
-                        $orderItem->artworks()->create([
-                            'purpose' => $file->getMimeType() === 'application/pdf' ? 'design' : 'proof',
-                            'file_path' => $path,
-                            'file_type' => $file->getMimeType() === 'application/pdf' ? 'pdf' : 'image',
-                        ]);
-                    }
+                    $storedPaths = [
+                        ...$storedPaths,
+                        ...$orderArtworkService->attachToOrderItem(
+                            $orderItem,
+                            $request->file("items.$index.artworks", []),
+                        ),
+                    ];
                 }
 
                 $order->update(['total_amount' => round($totalAmount, 2)]);

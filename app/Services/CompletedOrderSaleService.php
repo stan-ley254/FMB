@@ -15,7 +15,7 @@ class CompletedOrderSaleService
             throw new LogicException("Order #{$order->id} must be completed before a sale can be recorded.");
         }
 
-        $order->loadMissing(['customer', 'items.material']);
+        $order->loadMissing(['customer', 'items.material', 'items.catalogItem']);
 
         return Sale::firstOrCreate(
             ['order_id' => $order->id],
@@ -32,6 +32,7 @@ class CompletedOrderSaleService
                     'material_name' => $item->material?->name,
                     'catalog_item_id' => $item->catalog_item_id,
                     'catalog_item_name' => $item->catalog_item_name,
+                    'category' => $item->catalogItem?->category,
                     'unit' => $item->catalog_item_unit,
                     'quantity' => $item->quantity_or_meters,
                     'unit_price' => $item->unit_price,

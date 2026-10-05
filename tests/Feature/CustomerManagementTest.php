@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CatalogItem;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderArtwork;
@@ -67,6 +68,49 @@ class CustomerManagementTest extends TestCase
             ->assertSee('Order #'.$order->id)
             ->assertSee('Designs &amp; production proofs', false)
             ->assertSee(route('artworks.download', $artwork), false);
+    }
+
+    public function test_customer_order_totals_include_dtf_print_and_other_catalog_types(): void
+    {
+        $customer = Customer::create(['name' => 'Print History Customer']);
+        $order = Order::create(['customer_id' => $customer->id]);
+        $dtfPrint = CatalogItem::create([
+            'name' => 'DTF NoCut Printing',
+            'category' => null,
+            'order_item_type' => 'dtf_print',
+            'unit' => 'meter',
+            'default_unit_price' => 450,
+            'is_active' => true,
+        ]);
+        $mug = CatalogItem::create([
+            'name' => 'Magic Mug',
+            'category' => 'Mugs',
+            'order_item_type' => 'mugs',
+            'unit' => 'piece',
+            'default_unit_price' => 800,
+            'is_active' => true,
+        ]);
+
+        foreach ([[$dtfPrint, 1.5], [$mug, 2]] as [$catalogItem, $quantity]) {
+            OrderItem::create([
+                'order_id' => $order->id,
+                'item_type' => $catalogItem->order_item_type,
+                'catalog_item_id' => $catalogItem->id,
+                'catalog_item_name' => $catalogItem->name,
+                'catalog_item_unit' => $catalogItem->unit,
+                'quantity_or_meters' => $quantity,
+                'unit_price' => $catalogItem->default_unit_price,
+                'subtotal' => $quantity * (float) $catalogItem->default_unit_price,
+            ]);
+        }
+
+        $this->get(route('customers.show', $customer))
+            ->assertOk()
+            ->assertSee('DTF Print ordered')
+            ->assertSee('1.500')
+            ->assertSee('Mugs ordered')
+            ->assertSee('2')
+            ->assertSee('pieces');
     }
 
     public function test_customer_information_can_be_updated(): void

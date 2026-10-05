@@ -18,9 +18,9 @@
                 <p class="mt-1 text-xs text-slate-500">Machine and color are fixed so existing stock history keeps its original identity.</p>
             </div>
             <div>
-                <p class="mb-1 text-sm font-medium text-slate-700">Quantity remaining</p>
-                <p class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">{{ number_format((float) $inkStock->quantity_remaining, 0) }} {{ $inkStock->unit }}</p>
-                <p class="mt-1 text-xs text-slate-500">Use Add Stock or Use 1 to change quantity and keep the stock audit trail.</p>
+                <label for="quantity_remaining" class="mb-1 block text-sm font-medium text-slate-700">Quantity remaining</label>
+                <input id="quantity_remaining" name="quantity_remaining" type="number" min="0" max="999999" step="1" required value="{{ old('quantity_remaining', $inkStock->quantity_remaining) }}" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+                <p class="mt-1 text-xs text-slate-500">Changing quantity records the signed correction in stock history.</p>
             </div>
             <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
                 <input type="hidden" name="is_active" value="0">

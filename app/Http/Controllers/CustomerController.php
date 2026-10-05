@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CatalogItem;
 use App\Models\Customer;
 use App\Models\OrderItem;
 use Illuminate\Http\RedirectResponse;
@@ -50,12 +51,22 @@ class CustomerController extends Controller
             ]),
         ]);
 
-        $orderItems = OrderItem::query()
-            ->whereHas('order', fn ($query) => $query->where('customer_id', $customer->id));
-        $bannerMeters = (clone $orderItems)->where('item_type', 'banner')->sum('quantity_or_meters');
-        $dtfGarments = (clone $orderItems)->where('item_type', 'dtf_garment')->sum('quantity_or_meters');
+        $itemTotals = OrderItem::query()
+            ->whereHas('order', fn ($query) => $query->where('customer_id', $customer->id))
+            ->select('item_type', 'catalog_item_unit')
+            ->selectRaw('SUM(quantity_or_meters) AS total_quantity')
+            ->groupBy('item_type', 'catalog_item_unit')
+            ->orderBy('item_type')
+            ->get()
+            ->map(fn (OrderItem $item): array => [
+                'item_type' => $item->item_type,
+                'label' => CatalogItem::ITEM_TYPES[$item->item_type]
+                    ?? str($item->item_type)->replace('_', ' ')->title()->toString(),
+                'quantity' => (float) $item->total_quantity,
+                'unit' => $item->catalog_item_unit ?? ($item->item_type === 'dtf_garment' ? 'piece' : 'meter'),
+            ]);
 
-        return view('customers.show', compact('customer', 'bannerMeters', 'dtfGarments'));
+        return view('customers.show', compact('customer', 'itemTotals'));
     }
 
     public function edit(Customer $customer): View
